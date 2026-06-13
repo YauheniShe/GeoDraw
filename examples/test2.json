@@ -1,0 +1,323 @@
+{
+    "problem_name": "Parallelogram and Two Circumcircles",
+    "constraints": [
+        {
+            "type": "IsAcute",
+            "args": [
+                "D",
+                "A",
+                "B"
+            ]
+        },
+        {
+            "type": "DistanceInequality",
+            "args": [
+                {
+                    "type": "Distance",
+                    "points": [
+                        "A",
+                        "D"
+                    ]
+                },
+                ">",
+                {
+                    "type": "Distance",
+                    "points": [
+                        "A",
+                        "B"
+                    ]
+                }
+            ]
+        }
+    ],
+    "construction": [
+        {
+            "names": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ],
+            "type": "Point",
+            "method": "Parallelogram",
+            "args": null
+        },
+        {
+            "name": "Line_BC",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "B",
+                    "C"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Circle_B",
+            "type": "Circle",
+            "method": "CenterRadius",
+            "args": {
+                "center": "B",
+                "radius": {
+                    "type": "Distance",
+                    "points": [
+                        "A",
+                        "B"
+                    ]
+                }
+            },
+            "hidden": true
+        },
+        {
+            "name": "Circle_C",
+            "type": "Circle",
+            "method": "CenterRadius",
+            "args": {
+                "center": "C",
+                "radius": {
+                    "type": "Distance",
+                    "points": [
+                        "A",
+                        "B"
+                    ]
+                }
+            },
+            "hidden": true
+        },
+        {
+            "name": "M",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Circle_B",
+                "obj2": "Circle_C"
+            },
+            "disambiguation": {
+                "rule": "same_side_of_line",
+                "line": "Line_BC",
+                "point": "A"
+            }
+        },
+        {
+            "name": "Line_CM",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "C",
+                    "M"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_AD",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "A",
+                    "D"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "N",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Line_CM",
+                "obj2": "Line_AD"
+            }
+        },
+        {
+            "name": "Line_MD",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "M",
+                    "D"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "K",
+            "type": "Point",
+            "method": "Reflection",
+            "args": {
+                "target": "N",
+                "axis": "Line_MD"
+            }
+        },
+        {
+            "name": "Line_MK",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "M",
+                    "K"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "L",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Line_MK",
+                "obj2": "Line_AD"
+            }
+        },
+        {
+            "name": "Circumcircle_AMD",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "A",
+                    "M",
+                    "D"
+                ]
+            }
+        },
+        {
+            "name": "Circumcircle_CNK",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "C",
+                    "N",
+                    "K"
+                ]
+            }
+        },
+        {
+            "name": "P",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Circumcircle_AMD",
+                "obj2": "Circumcircle_CNK"
+            },
+            "disambiguation": {
+                "rule": "same_side_of_line",
+                "line": "Line_MK",
+                "point": "A"
+            }
+        }
+    ],
+    "goals": [
+        {
+            "type": "Equal",
+            "args": [
+                {
+                    "type": "AngleMeasure",
+                    "vertex": "P",
+                    "ends": [
+                        "C",
+                        "M"
+                    ]
+                },
+                {
+                    "type": "AngleMeasure",
+                    "vertex": "P",
+                    "ends": [
+                        "D",
+                        "L"
+                    ]
+                }
+            ]
+        }
+    ],
+    "view": [
+        {
+            "action": "DrawPolygon",
+            "vertices": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "C",
+                "N"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "M",
+                "K"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "N",
+                "K"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "M",
+                "D"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "C",
+                "P"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "M",
+                "P"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "D",
+                "P"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "L",
+                "P"
+            ]
+        },
+        {
+            "action": "DrawAngle",
+            "vertex": "P",
+            "ends": [
+                "C",
+                "M"
+            ]
+        },
+        {
+            "action": "DrawAngle",
+            "vertex": "P",
+            "ends": [
+                "D",
+                "L"
+            ]
+        }
+    ]
+}

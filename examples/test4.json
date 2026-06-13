@@ -1,0 +1,266 @@
+{
+    "problem_name": "Bisectors in a Cyclic Quadrilateral",
+    "constraints": [
+        {
+            "type": "Convex",
+            "args": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        },
+        {
+            "type": "DistanceInequality",
+            "args": [
+                {
+                    "type": "Distance",
+                    "points": [
+                        "A",
+                        "B"
+                    ]
+                },
+                ">",
+                {
+                    "type": "Distance",
+                    "points": [
+                        "C",
+                        "D"
+                    ]
+                }
+            ]
+        }
+    ],
+    "construction": [
+        {
+            "names": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ],
+            "type": "Point",
+            "method": "CyclicQuadrilateral",
+            "args": null
+        },
+        {
+            "name": "Circumcircle_ABCD",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            }
+        },
+        {
+            "name": "Line_AC",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "A",
+                    "C"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_BD",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "B",
+                    "D"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "E",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Line_AC",
+                "obj2": "Line_BD"
+            }
+        },
+        {
+            "name": "Line_AD",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "A",
+                    "D"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_BC",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "B",
+                    "C"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "F",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Line_AD",
+                "obj2": "Line_BC"
+            }
+        },
+        {
+            "name": "Bisector_F",
+            "type": "Line",
+            "method": "AngleBisector",
+            "args": {
+                "vertex": "F",
+                "ends": [
+                    "A",
+                    "B"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Bisector_E",
+            "type": "Line",
+            "method": "AngleBisector",
+            "args": {
+                "vertex": "E",
+                "ends": [
+                    "A",
+                    "B"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_CD",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "C",
+                    "D"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "X",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Bisector_F",
+                "obj2": "Line_CD"
+            }
+        },
+        {
+            "name": "Y",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Bisector_E",
+                "obj2": "Line_CD"
+            }
+        }
+    ],
+    "goals": [
+        {
+            "type": "Concyclic",
+            "args": [
+                "A",
+                "B",
+                "X",
+                "Y"
+            ]
+        }
+    ],
+    "view": [
+        {
+            "action": "DrawPolygon",
+            "vertices": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "A",
+                "C"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "B",
+                "D"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "D",
+                "F"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "C",
+                "F"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "F",
+                "X"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "E",
+                "Y"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "C",
+                "X"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "D",
+                "Y"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "X",
+                "Y"
+            ]
+        }
+    ]
+}

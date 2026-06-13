@@ -1,0 +1,187 @@
+{
+    "problem_name": "Harmonic Quadrilateral Tangent Circle",
+    "constraints": [
+        {
+            "type": "Convex",
+            "args": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        }
+    ],
+    "construction": [
+        {
+            "name": "A",
+            "type": "Point",
+            "method": "Free",
+            "args": {
+                "approx_position": [
+                    0,
+                    0
+                ]
+            }
+        },
+        {
+            "name": "B",
+            "type": "Point",
+            "method": "Free",
+            "args": {
+                "approx_position": [
+                    1,
+                    3
+                ]
+            }
+        },
+        {
+            "name": "C",
+            "type": "Point",
+            "method": "Free",
+            "args": {
+                "approx_position": [
+                    4,
+                    2
+                ]
+            }
+        },
+        {
+            "name": "Circum_ABC",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            }
+        },
+        {
+            "name": "Line_AC",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "A",
+                    "C"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Apo_AC",
+            "type": "Circle",
+            "method": "ApolloniusCircle",
+            "args": {
+                "points": [
+                    "A",
+                    "C"
+                ],
+                "ratio": {
+                    "type": "MathExpression",
+                    "expression": "d_AB / d_BC",
+                    "variables": {
+                        "d_AB": {
+                            "type": "Distance",
+                            "points": [
+                                "A",
+                                "B"
+                            ]
+                        },
+                        "d_BC": {
+                            "type": "Distance",
+                            "points": [
+                                "B",
+                                "C"
+                            ]
+                        }
+                    }
+                }
+            },
+            "hidden": true
+        },
+        {
+            "name": "D",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Circum_ABC",
+                "obj2": "Apo_AC"
+            },
+            "disambiguation": {
+                "rule": "not_equal",
+                "target": "B"
+            }
+        },
+        {
+            "name": "B_prime",
+            "type": "Point",
+            "method": "Reflection",
+            "args": {
+                "target": "B",
+                "axis": "Line_AC"
+            }
+        },
+        {
+            "name": "Circ_ABpD",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "A",
+                    "B_prime",
+                    "D"
+                ]
+            }
+        }
+    ],
+    "goals": [
+        {
+            "type": "Tangent",
+            "args": [
+                "Line_AC",
+                "Circ_ABpD"
+            ]
+        }
+    ],
+    "view": [
+        {
+            "action": "DrawPolygon",
+            "vertices": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "A",
+                "C"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "A",
+                "B_prime"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "D",
+                "B_prime"
+            ]
+        },
+        {
+            "action": "Show",
+            "targets": [
+                "Circum_ABC",
+                "Circ_ABpD"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,307 @@
+{
+    "problem_name": "Convex Quadrilateral and Tangents Intersection",
+    "constraints": [
+        {
+            "type": "Convex",
+            "args": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        },
+        {
+            "type": "DistanceInequality",
+            "args": [
+                {
+                    "type": "Distance",
+                    "points": [
+                        "A",
+                        "D"
+                    ]
+                },
+                ">",
+                {
+                    "type": "Distance",
+                    "points": [
+                        "A",
+                        "B"
+                    ]
+                }
+            ]
+        }
+    ],
+    "construction": [
+        {
+            "name": "A",
+            "type": "Point",
+            "method": "Free",
+            "args": {
+                "approx_position": [
+                    0,
+                    0
+                ]
+            }
+        },
+        {
+            "name": "B",
+            "type": "Point",
+            "method": "Free",
+            "args": {
+                "approx_position": [
+                    2,
+                    3
+                ]
+            }
+        },
+        {
+            "name": "D",
+            "type": "Point",
+            "method": "Free",
+            "args": {
+                "approx_position": [
+                    4,
+                    0
+                ]
+            }
+        },
+        {
+            "name": "ApoCircle",
+            "type": "Circle",
+            "method": "ApolloniusCircle",
+            "args": {
+                "points": [
+                    "D",
+                    "B"
+                ],
+                "ratio": {
+                    "type": "MathExpression",
+                    "expression": "d_AD / d_AB",
+                    "variables": {
+                        "d_AD": {
+                            "type": "Distance",
+                            "points": [
+                                "A",
+                                "D"
+                            ]
+                        },
+                        "d_AB": {
+                            "type": "Distance",
+                            "points": [
+                                "A",
+                                "B"
+                            ]
+                        }
+                    }
+                }
+            },
+            "hidden": true
+        },
+        {
+            "name": "C",
+            "type": "Point",
+            "method": "PointOnObject",
+            "args": {
+                "object": "ApoCircle"
+            }
+        },
+        {
+            "name": "Circ_ABD",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "A",
+                    "B",
+                    "D"
+                ]
+            }
+        },
+        {
+            "name": "Circ_BCD",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "B",
+                    "C",
+                    "D"
+                ]
+            }
+        },
+        {
+            "name": "Circ_ABC",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            }
+        },
+        {
+            "name": "Circ_ACD",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "A",
+                    "C",
+                    "D"
+                ]
+            }
+        },
+        {
+            "name": "Tangent_F1",
+            "type": "Line",
+            "method": "CommonTangent",
+            "args": {
+                "circle1": "Circ_ABD",
+                "circle2": "Circ_BCD"
+            },
+            "disambiguation": {
+                "direction": "external",
+                "algebraic_index": 1
+            },
+            "hidden": true
+        },
+        {
+            "name": "Tangent_F2",
+            "type": "Line",
+            "method": "CommonTangent",
+            "args": {
+                "circle1": "Circ_ABD",
+                "circle2": "Circ_BCD"
+            },
+            "disambiguation": {
+                "direction": "external",
+                "algebraic_index": 2
+            },
+            "hidden": true
+        },
+        {
+            "name": "F",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Tangent_F1",
+                "obj2": "Tangent_F2"
+            }
+        },
+        {
+            "name": "Tangent_E1",
+            "type": "Line",
+            "method": "CommonTangent",
+            "args": {
+                "circle1": "Circ_ABC",
+                "circle2": "Circ_ACD"
+            },
+            "disambiguation": {
+                "direction": "external",
+                "algebraic_index": 1
+            },
+            "hidden": true
+        },
+        {
+            "name": "Tangent_E2",
+            "type": "Line",
+            "method": "CommonTangent",
+            "args": {
+                "circle1": "Circ_ABC",
+                "circle2": "Circ_ACD"
+            },
+            "disambiguation": {
+                "direction": "external",
+                "algebraic_index": 2
+            },
+            "hidden": true
+        },
+        {
+            "name": "E",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Tangent_E1",
+                "obj2": "Tangent_E2"
+            }
+        },
+        {
+            "name": "Line_AC",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "A",
+                    "C"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_BD",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "B",
+                    "D"
+                ]
+            },
+            "hidden": true
+        }
+    ],
+    "goals": [
+        {
+            "type": "Belongs",
+            "args": [
+                "F",
+                "Line_AC"
+            ]
+        },
+        {
+            "type": "Belongs",
+            "args": [
+                "E",
+                "Line_BD"
+            ]
+        }
+    ],
+    "view": [
+        {
+            "action": "DrawPolygon",
+            "vertices": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        },
+        {
+            "action": "Show",
+            "targets": [
+                "Circ_ABD",
+                "Circ_BCD",
+                "Circ_ABC",
+                "Circ_ACD"
+            ]
+        },
+        {
+            "action": "Clip",
+            "target": "Line_AC",
+            "endpoints": [
+                "A",
+                "F"
+            ]
+        },
+        {
+            "action": "Clip",
+            "target": "Line_BD",
+            "endpoints": [
+                "B",
+                "E"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,251 @@
+{
+    "problem_name": "Collinearity from two circumcircles in an acute triangle",
+    "constraints": [
+        {
+            "type": "IsAcute",
+            "args": [
+                "A",
+                "B",
+                "C"
+            ]
+        },
+        {
+            "type": "IsAcute",
+            "args": [
+                "B",
+                "C",
+                "A"
+            ]
+        },
+        {
+            "type": "IsAcute",
+            "args": [
+                "C",
+                "A",
+                "B"
+            ]
+        }
+    ],
+    "construction": [
+        {
+            "names": [
+                "A",
+                "B",
+                "C"
+            ],
+            "type": "Point",
+            "method": "FreeTriangle",
+            "args": null
+        },
+        {
+            "name": "D",
+            "type": "Point",
+            "method": "PointOnObject",
+            "args": {
+                "object": {
+                    "type": "Segment",
+                    "points": [
+                        "A",
+                        "B"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Line_BC",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "B",
+                    "C"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_DE_parallel",
+            "type": "Line",
+            "method": "ParallelLine",
+            "args": {
+                "point": "D",
+                "line": "Line_BC"
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_AC",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "A",
+                    "C"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "E",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Line_DE_parallel",
+                "obj2": "Line_AC"
+            }
+        },
+        {
+            "name": "P",
+            "type": "Point",
+            "method": "PointOnObject",
+            "args": {
+                "object": {
+                    "type": "Segment",
+                    "points": [
+                        "B",
+                        "C"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Q",
+            "type": "Point",
+            "method": "PointOnObject",
+            "args": {
+                "object": {
+                    "type": "Segment",
+                    "points": [
+                        "B",
+                        "P"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Line_DP",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "D",
+                    "P"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_EQ",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "E",
+                    "Q"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "X",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Line_DP",
+                "obj2": "Line_EQ"
+            }
+        },
+        {
+            "name": "Circ_BQX",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "B",
+                    "Q",
+                    "X"
+                ]
+            }
+        },
+        {
+            "name": "Circ_CPX",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "C",
+                    "P",
+                    "X"
+                ]
+            }
+        },
+        {
+            "name": "Y",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Circ_BQX",
+                "obj2": "Circ_CPX"
+            },
+            "disambiguation": {
+                "rule": "not_equal",
+                "target": "X"
+            }
+        }
+    ],
+    "goals": [
+        {
+            "type": "Collinear",
+            "args": [
+                "A",
+                "X",
+                "Y"
+            ]
+        }
+    ],
+    "view": [
+        {
+            "action": "DrawPolygon",
+            "vertices": [
+                "A",
+                "B",
+                "C"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "D",
+                "E"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "D",
+                "P"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "E",
+                "Q"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "A",
+                "X"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "X",
+                "Y"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,332 @@
+{
+    "problem_name": "Tangent to Circumcircle Meets Bisector",
+    "constraints": [
+        {
+            "type": "IsAcute",
+            "args": [
+                "B",
+                "A",
+                "C"
+            ]
+        },
+        {
+            "type": "IsAcute",
+            "args": [
+                "A",
+                "B",
+                "C"
+            ]
+        },
+        {
+            "type": "IsAcute",
+            "args": [
+                "A",
+                "C",
+                "B"
+            ]
+        },
+        {
+            "type": "DistanceInequality",
+            "args": [
+                {
+                    "type": "Distance",
+                    "points": [
+                        "A",
+                        "C"
+                    ]
+                },
+                ">",
+                {
+                    "type": "Distance",
+                    "points": [
+                        "A",
+                        "B"
+                    ]
+                }
+            ]
+        }
+    ],
+    "construction": [
+        {
+            "names": [
+                "A",
+                "B",
+                "C"
+            ],
+            "type": "Point",
+            "method": "FreeTriangle",
+            "args": null
+        },
+        {
+            "name": "Line_BC",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "B",
+                    "C"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Omega",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            }
+        },
+        {
+            "name": "PerpBisector_BC",
+            "type": "Line",
+            "method": "PerpendicularBisector",
+            "args": {
+                "points": [
+                    "B",
+                    "C"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "S",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "PerpBisector_BC",
+                "obj2": "Omega"
+            },
+            "disambiguation": {
+                "rule": "same_side_of_line",
+                "line": "Line_BC",
+                "point": "A"
+            }
+        },
+        {
+            "name": "Perp_A_BC",
+            "type": "Line",
+            "method": "PerpendicularLine",
+            "args": {
+                "point": "A",
+                "line": "Line_BC"
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_BS",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "B",
+                    "S"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "D",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Perp_A_BC",
+                "obj2": "Line_BS"
+            }
+        },
+        {
+            "name": "E",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Perp_A_BC",
+                "obj2": "Omega"
+            },
+            "disambiguation": {
+                "rule": "not_equal",
+                "target": "A"
+            }
+        },
+        {
+            "name": "Line_D_parallel",
+            "type": "Line",
+            "method": "ParallelLine",
+            "args": {
+                "point": "D",
+                "line": "Line_BC"
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_BE",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "B",
+                    "E"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "L",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Line_D_parallel",
+                "obj2": "Line_BE"
+            }
+        },
+        {
+            "name": "omega",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "B",
+                    "D",
+                    "L"
+                ]
+            }
+        },
+        {
+            "name": "P",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "omega",
+                "obj2": "Omega"
+            },
+            "disambiguation": {
+                "rule": "not_equal",
+                "target": "B"
+            }
+        },
+        {
+            "name": "Center_omega",
+            "type": "Point",
+            "method": "Center",
+            "args": {
+                "object": "omega"
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_Center_P",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "Center_omega",
+                    "P"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Tangent_P",
+            "type": "Line",
+            "method": "PerpendicularLine",
+            "args": {
+                "point": "P",
+                "line": "Line_Center_P"
+            },
+            "hidden": true
+        },
+        {
+            "name": "X",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Tangent_P",
+                "obj2": "Line_BS"
+            }
+        },
+        {
+            "name": "Bisector_A",
+            "type": "Line",
+            "method": "AngleBisector",
+            "args": {
+                "vertex": "A",
+                "ends": [
+                    "B",
+                    "C"
+                ]
+            },
+            "hidden": true
+        }
+    ],
+    "goals": [
+        {
+            "type": "Belongs",
+            "args": [
+                "X",
+                "Bisector_A"
+            ]
+        }
+    ],
+    "view": [
+        {
+            "action": "DrawPolygon",
+            "vertices": [
+                "A",
+                "B",
+                "C"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "A",
+                "E"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "B",
+                "E"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "D",
+                "L"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "B",
+                "X"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "C",
+                "S"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "P",
+                "X"
+            ]
+        },
+        {
+            "action": "DrawSegment",
+            "endpoints": [
+                "A",
+                "X"
+            ]
+        }
+    ]
+}

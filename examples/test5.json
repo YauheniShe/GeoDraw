@@ -1,0 +1,187 @@
+{
+    "problem_name": "Midpoints and Concyclicity in a Quadrilateral",
+    "constraints": [
+        {
+            "type": "Convex",
+            "args": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        }
+    ],
+    "construction": [
+        {
+            "name": "B",
+            "type": "Point",
+            "method": "Free",
+            "args": {
+                "approx_position": [
+                    0,
+                    0
+                ]
+            }
+        },
+        {
+            "name": "D",
+            "type": "Point",
+            "method": "Free",
+            "args": {
+                "approx_position": [
+                    6,
+                    0
+                ]
+            }
+        },
+        {
+            "name": "Circumcircle_BD",
+            "type": "Circle",
+            "method": "DiameterCircle",
+            "args": {
+                "points": [
+                    "B",
+                    "D"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "C",
+            "type": "Point",
+            "method": "PointOnObject",
+            "args": {
+                "object": "Circumcircle_BD"
+            }
+        },
+        {
+            "name": "M_BC",
+            "type": "Point",
+            "method": "Midpoint",
+            "args": {
+                "points": [
+                    "B",
+                    "C"
+                ]
+            }
+        },
+        {
+            "name": "Line_DM_BC",
+            "type": "Line",
+            "method": "LineThrough",
+            "args": {
+                "points": [
+                    "D",
+                    "M_BC"
+                ]
+            },
+            "hidden": true
+        },
+        {
+            "name": "Line_AC",
+            "type": "Line",
+            "method": "PerpendicularLine",
+            "args": {
+                "point": "C",
+                "line": "Line_DM_BC"
+            },
+            "hidden": true
+        },
+        {
+            "name": "A",
+            "type": "Point",
+            "method": "Intersection",
+            "args": {
+                "obj1": "Line_AC",
+                "obj2": "Circumcircle_BD"
+            },
+            "disambiguation": {
+                "rule": "not_equal",
+                "target": "C"
+            }
+        },
+        {
+            "name": "M_AB",
+            "type": "Point",
+            "method": "Midpoint",
+            "args": {
+                "points": [
+                    "A",
+                    "B"
+                ]
+            }
+        },
+        {
+            "name": "M_AD",
+            "type": "Point",
+            "method": "Midpoint",
+            "args": {
+                "points": [
+                    "A",
+                    "D"
+                ]
+            }
+        },
+        {
+            "name": "M_DC",
+            "type": "Point",
+            "method": "Midpoint",
+            "args": {
+                "points": [
+                    "D",
+                    "C"
+                ]
+            }
+        },
+        {
+            "name": "Circle_Premise",
+            "type": "Circle",
+            "method": "Circumcircle",
+            "args": {
+                "triangle": [
+                    "A",
+                    "D",
+                    "M_AB"
+                ]
+            }
+        }
+    ],
+    "goals": [
+        {
+            "type": "Concyclic",
+            "args": [
+                "M_AD",
+                "M_DC",
+                "B",
+                "C"
+            ]
+        }
+    ],
+    "view": [
+        {
+            "action": "DrawPolygon",
+            "vertices": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        },
+        {
+            "action": "DrawAngle",
+            "vertex": "A",
+            "ends": [
+                "D",
+                "B"
+            ]
+        },
+        {
+            "action": "DrawAngle",
+            "vertex": "C",
+            "ends": [
+                "B",
+                "D"
+            ]
+        }
+    ]
+}
