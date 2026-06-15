@@ -217,6 +217,8 @@ def select_disambiguation(candidates, rule, params, resolved_env):
 
     elif rule in ["same_side_of_line", "opposite_side_of_line"]:
         l_eq = get_line_eq(resolved_env[params.get("line")])
+        if l_eq is None:
+            return None
         a, b, c = l_eq
         ref_pt = resolved_env[params.get("point")]
         ref_sign = a * ref_pt[0] + b * ref_pt[1] + c
@@ -247,14 +249,14 @@ def compile_var_evaluators(variables_dict):
         elif isinstance(var_obj, dict):
             v_type = var_obj.get("type")
             if v_type == "Distance":
-                p0, p1 = var_obj.get("points")
+                p0, p1 = var_obj["points"]
                 evaluators[var_name] = lambda env, a=p0, b=p1: dist(env[a], env[b])
             elif v_type == "Number":
                 v = var_obj.get("value")
                 evaluators[var_name] = lambda env, val=v: val
             elif v_type == "AngleMeasure":
                 vt = var_obj.get("vertex")
-                e0, e1 = var_obj.get("ends")
+                e0, e1 = var_obj["ends"]
 
                 def angle_eval(env, v=vt, e0=e0, e1=e1):
                     vertex, end1, end2 = env[v], env[e0], env[e1]
@@ -273,18 +275,22 @@ def compile_value_argument(arg):
     elif isinstance(arg, dict):
         t = arg.get("type")
         if t == "MathExpression":
-            code = compile(arg.get("expression"), "<expr>", "eval")
+            code = compile(arg["expression"], "<expr>", "eval")
             var_evals = compile_var_evaluators(arg.get("variables", {}))
             return lambda env, c=code, ve=var_evals: eval(
                 c, MATH_GLOBALS, {k: f(env) for k, f in ve.items()}
             )
         elif t == "Distance":
-            p0, p1 = arg.get("points")
+            p0, p1 = arg["points"]
             return lambda env, a=p0, b=p1: dist(env[a], env[b])
         elif t == "Number":
             v = arg.get("value")
             return lambda env, val=v: val
-    v = float(arg)
+
+    if isinstance(arg, (int, float)):
+        v = float(arg)
+    else:
+        raise TypeError("arg has invalid type")
     return lambda env, val=v: val
 
 
@@ -302,7 +308,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
 
             if method == "Parallelogram":
 
-                def step(env, ns=names):
+                def step_parallelogram(env, ns=names):
                     if (
                         ns[0] in env
                         and ns[1] in env
@@ -312,22 +318,22 @@ def compile_execution_plan(doc: GeoDraftDocument):
                         A, B, C = env[ns[0]], env[ns[1]], env[ns[2]]
                         env[ns[3]] = (A[0] + C[0] - B[0], A[1] + C[1] - B[1])
 
-                plan.append(step)
+                plan.append(step_parallelogram)
 
             elif method == "Square":
 
-                def step(env, ns=names):
+                def step_square(env, ns=names):
                     A, B = env[ns[0]], env[ns[1]]
                     dx, dy = A[0] - B[0], A[1] - B[1]
                     env[ns[2]] = (B[0] + dy, B[1] - dx)
                     dx2, dy2 = B[0] - A[0], B[1] - A[1]
                     env[ns[3]] = (A[0] - dy2, A[1] + dx2)
 
-                plan.append(step)
+                plan.append(step_square)
 
             elif method == "EquilateralTriangle":
 
-                def step(env, ns=names):
+                def step_equiateral_triangle(env, ns=names):
                     A, B = env[ns[0]], env[ns[1]]
                     dx, dy = B[0] - A[0], B[1] - A[1]
                     env[ns[2]] = (
@@ -335,7 +341,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
                         A[1] + dx * 0.8660254037844386 + dy * 0.5,
                     )
 
-                plan.append(step)
+                plan.append(step_equiateral_triangle)
 
             continue
 
@@ -348,7 +354,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
 
         if obj.type == "Line":
             if method == "LineThrough":
-                p0, p1 = args.get("points")
+                p0, p1 = args["points"]
                 plan.append(
                     lambda env, n=name, a=p0, b=p1: env.update(
                         {n: line_from_points(env[a], env[b])}
@@ -357,31 +363,31 @@ def compile_execution_plan(doc: GeoDraftDocument):
             elif method == "ParallelLine":
                 pt, line = args.get("point"), args.get("line")
 
-                def step(env, n=name, p=pt, l=line):
+                def step_parallel_line(env, n=name, p=pt, l=line):  # noqa: E741
                     lp = env[p]
                     ll = env[l]
                     env[n] = (ll[0], ll[1], -(ll[0] * lp[0] + ll[1] * lp[1]))
 
-                plan.append(step)
+                plan.append(step_parallel_line)
             elif method == "PerpendicularLine":
                 pt, line = args.get("point"), args.get("line")
 
-                def step(env, n=name, p=pt, l=line):
+                def step_perpendicular_line(env, n=name, p=pt, l=line):  # noqa: E741
                     lp = env[p]
                     ll = env[l]
                     a_new, b_new = -ll[1], ll[0]
                     env[n] = (a_new, b_new, -(a_new * lp[0] + b_new * lp[1]))
 
-                plan.append(step)
+                plan.append(step_perpendicular_line)
             elif method == "AngleBisector":
-                v, e0, e1 = args.get("vertex"), args.get("ends")[0], args.get("ends")[1]
+                v, e0, e1 = args.get("vertex"), args["ends"][0], args["ends"][1]
                 plan.append(
                     lambda env, n=name, v=v, e0=e0, e1=e1: env.update(
                         {n: angle_bisector(env[v], env[e0], env[e1])}
                     )
                 )
             elif method == "PerpendicularBisector":
-                p0, p1 = args.get("points")
+                p0, p1 = args["points"]
                 plan.append(
                     lambda env, n=name, a=p0, b=p1: env.update(
                         {n: perpendicular_bisector(env[a], env[b])}
@@ -400,16 +406,16 @@ def compile_execution_plan(doc: GeoDraftDocument):
                     else 1
                 )
 
-                def step(env, n=name, c1=c1, c2=c2, ext=is_ext, i=idx):
+                def step_common_tanget(env, n=name, c1=c1, c2=c2, ext=is_ext, i=idx):
                     tangents = common_tangents(env[c1], env[c2], external=ext)
                     if not tangents or i > len(tangents):
                         raise ValueError("Касательные не найдены")
                     env[n] = tangents[i - 1]
 
-                plan.append(step)
+                plan.append(step_common_tanget)
 
         elif obj.type == "Segment":
-            p0, p1 = args.get("points")
+            p0, p1 = args["points"]
             plan.append(
                 lambda env, n=name, a=p0, b=p1: env.update(
                     {n: ("segment", env[a], env[b])}
@@ -417,7 +423,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
             )
 
         elif obj.type == "Ray":
-            p0, p1 = args.get("points")
+            p0, p1 = args["points"]
             plan.append(
                 lambda env, n=name, a=p0, b=p1: env.update({n: ("ray", env[a], env[b])})
             )
@@ -430,25 +436,25 @@ def compile_execution_plan(doc: GeoDraftDocument):
                     lambda env, n=name, c=c, r=r_eval: env.update({n: (env[c], r(env))})
                 )
             elif method == "DiameterCircle":
-                p0, p1 = args.get("points")
+                p0, p1 = args["points"]
 
-                def step(env, n=name, a=p0, b=p1):
+                def step_diameter_circle(env, n=name, a=p0, b=p1):
                     pa, pb = env[a], env[b]
                     env[n] = (
                         ((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2),
                         dist(pa, pb) / 2,
                     )
 
-                plan.append(step)
+                plan.append(step_diameter_circle)
             elif method == "Circumcircle":
-                t0, t1, t2 = args.get("triangle")
+                t0, t1, t2 = args["triangle"]
                 plan.append(
                     lambda env, n=name, a=t0, b=t1, c=t2: env.update(
                         {n: circumcircle(env[a], env[b], env[c])}
                     )
                 )
             elif method == "ApolloniusCircle":
-                p0, p1 = args.get("points")
+                p0, p1 = args["points"]
                 k_eval = compile_value_argument(args.get("ratio"))
                 plan.append(
                     lambda env, n=name, a=p0, b=p1, k=k_eval: env.update(
@@ -466,7 +472,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
                 )
                 d_params = obj.disambiguation or {}
 
-                def step(env, n=name, o1=o1, o2=o2, r=rule, p=d_params):
+                def step_intersection(env, n=name, o1=o1, o2=o2, r=rule, p=d_params):
                     obj1, obj2 = env[o1], env[o2]
                     l1, l2 = get_line_eq(obj1), get_line_eq(obj2)
                     if l1 and l2:
@@ -489,7 +495,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
                             intersect_circle_circle(obj1, obj2), r, p, env
                         )
 
-                plan.append(step)
+                plan.append(step_intersection)
 
             elif method == "Reflection":
                 t, ax = args.get("target"), args.get("axis")
@@ -499,7 +505,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
                     )
                 )
             elif method == "Midpoint":
-                p0, p1 = args.get("points")
+                p0, p1 = args["points"]
                 plan.append(
                     lambda env, n=name, a=p0, b=p1: env.update(
                         {n: ((env[a][0] + env[b][0]) / 2, (env[a][1] + env[b][1]) / 2)}
@@ -508,7 +514,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
             elif method == "Projection":
                 pt, line = args.get("point"), args.get("line")
                 plan.append(
-                    lambda env, n=name, p=pt, l=line: env.update(
+                    lambda env, n=name, p=pt, l=line: env.update(  # noqa: E741
                         {n: project_point_on_line(env[p], env[l])}
                     )
                 )
@@ -516,7 +522,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
                 obj_ref = args.get("object")
                 param_key = f"{name}_param"
 
-                def step(env, n=name, o=obj_ref, pk=param_key):
+                def step_point_on_object(env, n=name, o=obj_ref, pk=param_key):
                     ref = env[o]
                     param = env.get(pk, 0.35)
                     if type(ref) is tuple and len(ref) == 3 and type(ref[0]) is str:
@@ -538,21 +544,22 @@ def compile_execution_plan(doc: GeoDraftDocument):
                             proj = project_point_on_line((0, 0), l_eq)
                             env[n] = (proj[0] - b * param * 5, proj[1] + a * param * 5)
                         else:
-                            center, radius = ref
-                            theta = 2 * math.pi * param
-                            env[n] = (
-                                center[0] + radius * math.cos(theta),
-                                center[1] + radius * math.sin(theta),
-                            )
+                            if isinstance(ref, tuple) and len(ref) == 2:
+                                center, radius = ref
+                                theta = 2 * math.pi * param
+                                env[n] = (
+                                    center[0] + radius * math.cos(theta),
+                                    center[1] + radius * math.sin(theta),
+                                )
 
-                plan.append(step)
+                plan.append(step_point_on_object)
 
             elif method == "Center":
                 obj_ref = args.get("object")
                 plan.append(lambda env, n=name, o=obj_ref: env.update({n: env[o][0]}))
 
             elif method in ["Incenter", "Centroid", "Circumcenter", "Orthocenter"]:
-                t0, t1, t2 = args.get("triangle")
+                t0, t1, t2 = args["triangle"]
                 if method == "Incenter":
                     plan.append(
                         lambda env, n=name, a=t0, b=t1, c=t2: env.update(
@@ -579,7 +586,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
                     )
 
         elif obj.type == "MathExpression":
-            code = compile(args.get("expression"), "<expr>", "eval")
+            code = compile(args["expression"], "<expr>", "eval")
             var_evals = compile_var_evaluators(args.get("variables", {}))
             plan.append(
                 lambda env, n=name, c=code, ve=var_evals: env.update(
@@ -588,17 +595,17 @@ def compile_execution_plan(doc: GeoDraftDocument):
             )
 
         elif obj.type == "Distance":
-            p0, p1 = args.get("points")
+            p0, p1 = args["points"]
             plan.append(
                 lambda env, n=name, a=p0, b=p1: env.update({n: dist(env[a], env[b])})
             )
 
         elif obj.type == "Number":
-            val = float(args.get("value"))
+            val = float(args["value"])
             plan.append(lambda env, n=name, v=val: env.update({n: v}))
 
         elif obj.type == "AngleMeasure":
-            v, e0, e1 = args.get("vertex"), args.get("ends")[0], args.get("ends")[1]
+            v, e0, e1 = args.get("vertex"), args["ends"][0], args["ends"][1]
 
             def step(env, n=name, v=v, e0=e0, e1=e1):
                 vertex, end1, end2 = env[v], env[e0], env[e1]
@@ -617,8 +624,8 @@ def compile_constraints(doc: GeoDraftDocument):
     """
     checks = []
     for const in doc.constraints:
-        c_type = const.get("type")
-        c_args = const.get("args")
+        c_type = const["type"]
+        c_args = const["args"]
 
         if c_type == "IsAcute":
             v, a, ends = c_args[0], c_args[1], c_args[2]
@@ -638,16 +645,16 @@ def compile_constraints(doc: GeoDraftDocument):
 
             if lhs["type"] == "Distance":
                 lp0, lp1 = lhs["points"]
-                lhs_eval = lambda env, a=lp0, b=lp1: dist_sq(env[a], env[b])
+                lhs_eval = lambda env, a=lp0, b=lp1: dist_sq(env[a], env[b])  # noqa: E731
             else:
-                lhs_eval = lambda env: 0.0
+                lhs_eval = lambda env: 0.0  # noqa: E731
 
             if rhs["type"] == "Distance":
                 rp0, rp1 = rhs["points"]
-                rhs_eval = lambda env, a=rp0, b=rp1: dist_sq(env[a], env[b])
+                rhs_eval = lambda env, a=rp0, b=rp1: dist_sq(env[a], env[b])  # noqa: E731
             else:
                 r_val_sq = rhs.get("value", 0.0) ** 2
-                rhs_eval = lambda env, val=r_val_sq: val
+                rhs_eval = lambda env, val=r_val_sq: val  # noqa: E731
 
             if op == ">":
                 checks.append(lambda env, le=lhs_eval, re=rhs_eval: le(env) > re(env))
