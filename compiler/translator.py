@@ -48,7 +48,7 @@ class GeoDraftTranslator:
 
     def _emit(self, **kwargs) -> str:
         """Вспомогательный метод для добавления инструкции."""
-        name = kwargs.get("name")
+        name = kwargs["name"]
         self.instructions.append(GGBInstruction(**kwargs))
         return name
 
@@ -268,11 +268,16 @@ class GeoDraftTranslator:
 
         method = obj.method or "Free"
         expr_str = self._map_method_to_ggb(
-            obj.type, method, args, obj.disambiguation, name, sampled_state
+            obj.type,
+            method,
+            args,
+            obj.disambiguation,
+            name,
+            sampled_state,  # type: ignore
         )
 
         ggb_type = self.GGB_TYPE_MAP.get(obj.type, "numeric")
-        crd = sampled_state.get(name) if sampled_state else None
+        crd = sampled_state[name] if sampled_state else None  # type: ignore
 
         self._emit(
             name=name, expression=expr_str, ggb_type=ggb_type, hidden=hidden, coords=crd
@@ -292,8 +297,8 @@ class GeoDraftTranslator:
         obj_type: str,
         method: str,
         args: dict,
-        disambig: dict,
-        name: str,
+        disambig: dict | None,
+        name: str | None,
         sampled_state: dict,
     ) -> str:
 
@@ -303,7 +308,7 @@ class GeoDraftTranslator:
             case "PointReflection":
                 return f"Reflect({args.get('target')}, {args.get('center')})"
             case "Translation":
-                return f"Translate({args.get('target')}, Vector({args.get('vector')[0]}, {args.get('vector')[1]}))"
+                return f"Translate({args.get('target')}, Vector({args['vector'][0]}, {args['vector'][1]}))"
             case "Rotation":
                 return f"Rotate({args.get('target')}, {args.get('angle')}, {args.get('center')})"
             case "Homothety":
@@ -437,6 +442,9 @@ class GeoDraftTranslator:
         self, obj: GeoObject, sampled_state: Optional[Dict[str, Any]] = None
     ):
         names = obj.names
+
+        if names is None:
+            return None
 
         match obj.method:
             case "Parallelogram":
