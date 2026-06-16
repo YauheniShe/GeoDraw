@@ -1,16 +1,14 @@
 import math
 import random
 
-from compiler.core.disambiguation import select_disambiguation
 from compiler.core.evaluators import compile_value_argument
+from compiler.math_lib.barycentric import isogonal_conjugate, isotomic_conjugate
 from compiler.math_lib.base import (
     centroid,
     circumcenter,
     dist,
     get_line_eq,
     incenter,
-    intersect_circle_circle,
-    intersect_line_circle,
     orthocenter,
     project_point_on_line,
 )
@@ -41,90 +39,6 @@ class FreePointOp:
 
         approx = args.get("approx_position") if args else (0, 0)
         return f"({approx[0]}, {approx[1]})"
-
-
-@register("Point", "Intersection")
-class IntersectionOp:
-    @staticmethod
-    def compile_sample(args, name: str, disambiguation):
-        o1, o2 = args.get("obj1"), args.get("obj2")
-        rule = (
-            disambiguation.get("rule", "algebraic_index")
-            if disambiguation
-            else "algebraic_index"
-        )
-        d_params = disambiguation or {}
-
-        def step(env):
-            obj1, obj2 = env[o1], env[o2]
-            l1, l2 = get_line_eq(obj1), get_line_eq(obj2)
-            if l1 and l2:
-                a1, b1, c1 = l1
-                a2, b2, c2 = l2
-                det = a1 * b2 - a2 * b1
-                if abs(det) < 1e-9:
-                    raise ValueError("Прямые параллельны")
-                env[name] = ((b1 * c2 - b2 * c1) / det, (c1 * a2 - c2 * a1) / det)
-            elif l1 and not l2:
-                env[name] = select_disambiguation(
-                    intersect_line_circle(l1, obj2), rule, d_params, env
-                )
-            elif not l1 and l2:
-                env[name] = select_disambiguation(
-                    intersect_line_circle(l2, obj1), rule, d_params, env
-                )
-            else:
-                env[name] = select_disambiguation(
-                    intersect_circle_circle(obj1, obj2), rule, d_params, env
-                )
-
-        return step
-
-    @staticmethod
-    def to_ggb(
-        args, name: str, disambiguation, doc_obj_types, translator, **kwargs
-    ) -> str:  # type: ignore
-        obj1, obj2 = args.get("obj1"), args.get("obj2")
-        if not disambiguation:
-            return f"Intersect({obj1}, {obj2}, 1)"
-
-        rule = disambiguation.get("rule")
-        if rule == "algebraic_index":
-            return f"Intersect({obj1}, {obj2}, {disambiguation.get('index', 1)})"
-
-        t1 = doc_obj_types.get(obj1, "Line")
-        t2 = doc_obj_types.get(obj2, "Line")
-        linear_types = {"Line", "Segment", "Ray"}
-
-        if t1 in linear_types and t2 in linear_types:
-            return f"Intersect({obj1}, {obj2})"
-
-        translator._emit(
-            name=f"{name}I1",
-            expression=f"Intersect({obj1}, {obj2}, 1)",
-            ggb_type="point",
-            hidden=True,
-        )
-        translator._emit(
-            name=f"{name}I2",
-            expression=f"Intersect({obj1}, {obj2}, 2)",
-            ggb_type="point",
-            hidden=True,
-        )
-
-        if rule in ("closest_to", "furthest_from"):
-            tgt = disambiguation.get("target")
-            op = "<" if rule == "closest_to" else ">"
-            return f"If(Distance({name}I1, {tgt}) {op} Distance({name}I2, {tgt}), {name}I1, {name}I2)"
-
-        elif rule == "not_equal":
-            return f"If({name}I1 == {disambiguation.get('target')}, {name}I2, {name}I1)"
-
-        elif rule in ("same_side_of_line", "opposite_side_of_line"):
-            ln, pt = disambiguation.get("line"), disambiguation.get("point")
-            cond = f"(({pt} - ClosestPoint({ln}, {pt})) * ({name}I1 - ClosestPoint({ln}, {name}I1)))"
-            op = ">" if rule == "same_side_of_line" else "<"
-            return f"If({cond} {op} 0, {name}I1, {name}I2)"
 
 
 @register("Point", "PointOnSegment")
@@ -333,3 +247,135 @@ class OrthocenterOp:
     @staticmethod
     def to_ggb(args, name, **kwargs):
         return f"TriangleCenter({args['triangle'][0]}, {args['triangle'][1]}, {args['triangle'][2]}, 4)"
+
+
+@register("Point", "ETC")
+class ETCOp:
+    @staticmethod
+    def compile_sample(args, name: str, disambiguation):
+        triangle = args["triangle"]
+        idx = args["index"]
+
+        def step(env):
+            p1, p2, p3 = env[triangle[0]], env[triangle[1]], env[triangle[2]]
+            if idx == 1:
+                env[name] = incenter(p1, p2, p3)
+            elif idx == 2:
+                env[name] = centroid(p1, p2, p3)
+            elif idx == 3:
+                env[name] = circumcenter(p1, p2, p3)
+            elif idx == 4:
+                env[name] = orthocenter(p1, p2, p3)
+            elif idx == 5:
+                o = orthocenter(p1, p2, p3)
+                c = circumcenter(p1, p2, p3)
+                env[name] = ((o[0] + c[0]) / 2, (o[1] + c[1]) / 2)
+            else:
+                env[name] = centroid(p1, p2, p3)
+
+        return step
+
+    @staticmethod
+    def to_ggb(args, name, **kwargs):
+        return f"TriangleCenter({args['triangle'][0]}, {args['triangle'][1]}, {args['triangle'][2]}, {args['index']})"
+
+
+@register("Point", "IsogonalConjugate")
+class IsogonalConjugateOp:
+    @staticmethod
+    def compile_sample(args, name: str, disambiguation):
+        pt, triangle = args["point"], args["triangle"]
+
+        def step(env):
+            env[name] = isogonal_conjugate(
+                env[pt], env[triangle[0]], env[triangle[1]], env[triangle[2]]
+            )
+
+        return step
+
+    @staticmethod
+    def to_ggb(args, name, **kwargs):
+        return f"IsogonalConjugate({args['point']}, {args['triangle'][0]}, {args['triangle'][1]}, {args['triangle'][2]})"
+
+
+@register("Point", "IsotomicConjugate")
+class IsotomicConjugateOp:
+    @staticmethod
+    def compile_sample(args, name: str, disambiguation):
+        pt, triangle = args["point"], args["triangle"]
+
+        def step(env):
+            env[name] = isotomic_conjugate(
+                env[pt], env[triangle[0]], env[triangle[1]], env[triangle[2]]
+            )
+
+        return step
+
+    @staticmethod
+    def to_ggb(args, name, translator, **kwargs):
+        pt, triangle = args["point"], args["triangle"]
+        A, B, C = triangle[0], triangle[1], triangle[2]
+        d_name, dp_name = f"helper_D_{name}", f"helper_Dp_{name}"
+        e_name, ep_name = f"helper_E_{name}", f"helper_Ep_{name}"
+
+        translator._emit(
+            name=d_name,
+            expression=f"Intersect(Line({A}, {pt}), Line({B}, {C}))",
+            ggb_type="point",
+            hidden=True,
+        )
+        translator._emit(
+            name=dp_name,
+            expression=f"{B} + {C} - {d_name}",
+            ggb_type="point",
+            hidden=True,
+        )
+        translator._emit(
+            name=e_name,
+            expression=f"Intersect(Line({B}, {pt}), Line({A}, {C}))",
+            ggb_type="point",
+            hidden=True,
+        )
+        translator._emit(
+            name=ep_name,
+            expression=f"{A} + {C} - {e_name}",
+            ggb_type="point",
+            hidden=True,
+        )
+        return f"Intersect(Line({A}, {dp_name}), Line({B}, {ep_name}))"
+
+
+@register("Point", "HarmonicConjugate")
+class HarmonicConjugateOp:
+    @staticmethod
+    def compile_sample(args, name: str, disambiguation):
+        pts, conj = args["points"], args["conjugate_to"]
+
+        def step(env):
+            A, B, C = env[pts[0]], env[pts[1]], env[conj]
+            dx_ab, dy_ab = B[0] - A[0], B[1] - A[1]
+            dx_ac, dy_ac = C[0] - A[0], C[1] - A[1]
+            t = dx_ac / dx_ab if abs(dx_ab) > abs(dy_ab) else dy_ac / dy_ab
+            s = t / (2 * t - 1) if abs(2 * t - 1) > 1e-9 else 1e9
+            env[name] = (A[0] + s * dx_ab, A[1] + s * dy_ab)
+
+        return step
+
+    @staticmethod
+    def to_ggb(args, name, translator, **kwargs):
+        pts, conj = args["points"], args["conjugate_to"]
+        A, B, C = pts[0], pts[1], conj
+        t_name, s_name = f"t_{name}", f"s_{name}"
+        translator._emit(
+            name=t_name,
+            expression=f"If(x({A}) != x({B}), (x({C}) - x({A})) / (x({B}) - x({A})), (y({C}) - y({A})) / (y({B}) - y({A})))",
+            ggb_type="numeric",
+            hidden=True,
+        )
+        translator._emit(
+            name=s_name,
+            expression=f"{t_name} / (2 * {t_name} - 1)",
+            ggb_type="numeric",
+            hidden=True,
+        )
+        return f"{A} + {s_name} * ({B} - {A})"

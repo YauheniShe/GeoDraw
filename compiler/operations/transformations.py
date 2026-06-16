@@ -49,6 +49,10 @@ class PointReflectionOp:
 
 
 @register("Point", "Translation")
+@register("Line", "Translation")
+@register("Segment", "Translation")
+@register("Ray", "Translation")
+@register("Circle", "Translation")
 class TranslationOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
@@ -72,6 +76,10 @@ class TranslationOp:
 
 
 @register("Point", "Rotation")
+@register("Line", "Rotation")
+@register("Segment", "Rotation")
+@register("Ray", "Rotation")
+@register("Circle", "Rotation")
 class RotationOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
@@ -115,6 +123,10 @@ class RotationOp:
 
 
 @register("Point", "Homothety")
+@register("Line", "Homothety")
+@register("Segment", "Homothety")
+@register("Ray", "Homothety")
+@register("Circle", "Homothety")
 class HomothetyOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
@@ -139,3 +151,27 @@ class HomothetyOp:
     def to_ggb(args, name, translator, **kwargs) -> str:
         ratio_str = translator._var_to_ggb(args.get("ratio"))
         return f"Dilate({args.get('target')}, {ratio_str}, {args.get('center')})"
+
+
+@register("Point", "Inversion")
+class InversionOp:
+    @staticmethod
+    def compile_sample(args, name: str, disambiguation):
+        t, c, circ_ref = args["target"], args["center"], args["circle"]
+
+        def step(env):
+            target_pt, center_pt = env[t], env[c]
+            _, r = env[circ_ref]
+            dx, dy = target_pt[0] - center_pt[0], target_pt[1] - center_pt[1]
+            d2 = dx**2 + dy**2
+            if d2 < 1e-9:
+                env[name] = center_pt
+            else:
+                factor = (r**2) / d2
+                env[name] = (center_pt[0] + factor * dx, center_pt[1] + factor * dy)
+
+        return step
+
+    @staticmethod
+    def to_ggb(args, name, **kwargs):
+        return f"Reflect({args['target']}, {args['circle']})"

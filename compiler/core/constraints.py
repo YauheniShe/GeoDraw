@@ -56,4 +56,7 @@ def compile_constraints(doc: GeoDraftDocument):
 
             checks.append(check_convex)
 
+        else:
+            raise NotImplementedError(f"Неизвестный тип ограничения: {c_type}")
+
     return checks

@@ -189,3 +189,22 @@ def apply_transform(obj, transform_pt, scale=1.0):
             p1, p2 = get_two_points_on_line(obj)
             return line_from_points(transform_pt(p1), transform_pt(p2))
     return transform_pt(obj)
+
+
+def tangents_from_point_to_circle(p, circle):
+    """Находит уравнения касательных из точки P к окружности (Center, R)."""
+    (xc, yc), r = circle
+    d = dist(p, (xc, yc))
+    if d < r - 1e-9:
+        return []
+    if abs(d - r) < 1e-9:
+        line_cp = line_from_points((xc, yc), p)
+        return [(line_cp[1], -line_cp[0], -(line_cp[1] * p[0] - line_cp[0] * p[1]))]
+
+    ch = (r**2) / d
+    dx, dy = (p[0] - xc) / d, (p[1] - yc) / d
+    h_pt = (xc + ch * dx, yc + ch * dy)
+    h_len = math.sqrt(r**2 - ch**2)
+    t1 = (h_pt[0] - h_len * dy, h_pt[1] + h_len * dx)
+    t2 = (h_pt[0] + h_len * dy, h_pt[1] - h_len * dx)
+    return [line_from_points(p, t1), line_from_points(p, t2)]

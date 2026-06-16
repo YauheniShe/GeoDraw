@@ -73,6 +73,11 @@ def compile_execution_plan(doc: GeoDraftDocument):
                 env[n] = raw_ang if raw_ang <= math.pi else (2 * math.pi - raw_ang)
 
             plan.append(step_ang)
+        else:
+            raise NotImplementedError(
+                f"Неизвестная комбинация type='{obj.type}' и method='{method}' "
+                f"для объекта '{name}'. Проверьте регистрацию операции."
+            )
 
     return plan
 
@@ -86,7 +91,7 @@ def sample_and_evaluate(doc: GeoDraftDocument, max_attempts=1000) -> Dict[str, A
         try:
             for step in execution_plan:
                 step(env)
-        except ValueError:
+        except (ValueError, ZeroDivisionError, ArithmeticError):
             continue
 
         satisfied = True
