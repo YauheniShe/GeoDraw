@@ -51,7 +51,10 @@ class GeoDraftGenerator:
 
             show_label = (
                 "true"
-                if el_type == "point" and not instr.name.startswith("anon")
+                if el_type == "point"
+                and not instr.name.startswith("anon")
+                and not instr.name.startswith("goal")
+                and not instr.name.startswith("draw")
                 else "false"
             )
             ET.SubElement(elem, "show", object=show_val, label=show_label)

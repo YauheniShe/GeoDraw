@@ -158,6 +158,7 @@ class GeoDraftTranslator:
                         expression=point_name,
                         ggb_type="point",
                         is_goal=True,
+                        coords=sampled_state.get(point_name) if sampled_state else None,
                     )
                     visibility[name_pt] = True
 
