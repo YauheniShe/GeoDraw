@@ -1,6 +1,6 @@
 import math
 import random
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 from .models import GeoDraftDocument
 
@@ -28,9 +28,9 @@ class GeometryEvaluator:
         return all(signs) or not any(signs)
 
     @staticmethod
-    def is_acute(v, a, ends):
-        dx1, dy1 = v[0] - a[0], v[1] - a[1]
-        dx2, dy2 = ends[0] - a[0], ends[1] - a[1]
+    def is_acute(vertex, end1, end2):
+        dx1, dy1 = end1[0] - vertex[0], end1[1] - vertex[1]
+        dx2, dy2 = end2[0] - vertex[0], end2[1] - vertex[1]
         return (dx1 * dx2 + dy1 * dy2) > 0
 
 
@@ -268,7 +268,7 @@ def compile_var_evaluators(variables_dict):
     return evaluators
 
 
-def compile_value_argument(arg):
+def compile_value_argument(arg: Any) -> Callable[[Any], float]:
     """Универсальный компилятор параметров (радиус, ratio и др.)"""
     if isinstance(arg, str):
         return lambda env, n=arg: env[n]
@@ -285,7 +285,7 @@ def compile_value_argument(arg):
             return lambda env, a=p0, b=p1: dist(env[a], env[b])
         elif t == "Number":
             v = arg.get("value")
-            return lambda env, val=v: val
+            return lambda env, val=v: val  # type: ignore
 
     if isinstance(arg, (int, float)):
         v = float(arg)
@@ -628,38 +628,31 @@ def compile_constraints(doc: GeoDraftDocument):
         c_args = const["args"]
 
         if c_type == "IsAcute":
-            v, a, ends = c_args[0], c_args[1], c_args[2]
+            end1, vertex, end2 = c_args[0], c_args[1], c_args[2]
 
-            def check_acute(env, v=v, a=a, ends=ends):
-                pv, pa, pends = env.get(v), env.get(a), env.get(ends)
-                if not (pv and pa and pends):
+            def check_acute(env, e1=end1, v=vertex, e2=end2):
+                pe1, pv, pe2 = env.get(e1), env.get(v), env.get(e2)
+                if not (pe1 and pv and pe2):
                     return False
-                dx1, dy1 = pv[0] - pa[0], pv[1] - pa[1]
-                dx2, dy2 = pends[0] - pa[0], pends[1] - pa[1]
+                dx1, dy1 = pe1[0] - pv[0], pe1[1] - pv[1]
+                dx2, dy2 = pe2[0] - pv[0], pe2[1] - pv[1]
                 return (dx1 * dx2 + dy1 * dy2) > 0
 
             checks.append(check_acute)
 
         elif c_type == "DistanceInequality":
-            lhs, op, rhs = c_args[0], c_args[1], c_args[2]
-
-            if lhs["type"] == "Distance":
-                lp0, lp1 = lhs["points"]
-                lhs_eval = lambda env, a=lp0, b=lp1: dist_sq(env[a], env[b])  # noqa: E731
-            else:
-                lhs_eval = lambda env: 0.0  # noqa: E731
-
-            if rhs["type"] == "Distance":
-                rp0, rp1 = rhs["points"]
-                rhs_eval = lambda env, a=rp0, b=rp1: dist_sq(env[a], env[b])  # noqa: E731
-            else:
-                r_val_sq = rhs.get("value", 0.0) ** 2
-                rhs_eval = lambda env, val=r_val_sq: val  # noqa: E731
+            lhs_eval = compile_value_argument(c_args[0])
+            rhs_eval = compile_value_argument(c_args[2])
+            op = c_args[1]
 
             if op == ">":
                 checks.append(lambda env, le=lhs_eval, re=rhs_eval: le(env) > re(env))
             elif op == "<":
                 checks.append(lambda env, le=lhs_eval, re=rhs_eval: le(env) < re(env))
+            elif op == ">=":
+                checks.append(lambda env, le=lhs_eval, re=rhs_eval: le(env) >= re(env))
+            elif op == "<=":
+                checks.append(lambda env, le=lhs_eval, re=rhs_eval: le(env) <= re(env))
 
         elif c_type == "Convex":
             pts_names = tuple(c_args)
@@ -687,14 +680,12 @@ def sample_and_evaluate(doc: GeoDraftDocument, max_attempts=1000) -> Dict[str, A
 
     free_points_to_sample = {}
     point_on_object_params = []
-    has_cyclic_quad = False
-    cyclic_quad_names = []
+    cyclic_quads_list = []
 
     for obj in doc.construction:
         if obj.names:
             if obj.method == "CyclicQuadrilateral":
-                has_cyclic_quad = True
-                cyclic_quad_names = obj.names
+                cyclic_quads_list.append(obj.names)
             elif obj.method in ["Parallelogram", "FreeTriangle"]:
                 free_points_to_sample.update(
                     {
@@ -716,13 +707,10 @@ def sample_and_evaluate(doc: GeoDraftDocument, max_attempts=1000) -> Dict[str, A
             elif obj.method == "PointOnObject":
                 point_on_object_params.append(obj.name)
 
-    if has_cyclic_quad:
-        cyclic_quad_set = set(cyclic_quad_names)
-        free_points_to_sample_filtered = {
-            k: v for k, v in free_points_to_sample.items() if k not in cyclic_quad_set
-        }
-    else:
-        free_points_to_sample_filtered = free_points_to_sample
+    cyclic_quad_set = {name for quad in cyclic_quads_list for name in quad}
+    free_points_to_sample_filtered = {
+        k: v for k, v in free_points_to_sample.items() if k not in cyclic_quad_set
+    }
 
     uniform = random.uniform
     cos = math.cos
@@ -734,14 +722,14 @@ def sample_and_evaluate(doc: GeoDraftDocument, max_attempts=1000) -> Dict[str, A
         for name, approx in free_points_to_sample_filtered.items():
             env[name] = (approx[0] + uniform(-1.2, 1.2), approx[1] + uniform(-1.2, 1.2))
 
-        if has_cyclic_quad:
+        for quad_names in cyclic_quads_list:
             start_angle = uniform(0, 2 * pi)
             angles = [start_angle]
             for _ in range(3):
                 angles.append(angles[-1] + uniform(0.6, 1.4))
             R = uniform(2.5, 3.5)
             center_x, center_y = uniform(-0.5, 0.5), uniform(-0.5, 0.5)
-            for i, name in enumerate(cyclic_quad_names):
+            for i, name in enumerate(quad_names):
                 env[name] = (
                     center_x + R * cos(angles[i]),
                     center_y + R * sin(angles[i]),
