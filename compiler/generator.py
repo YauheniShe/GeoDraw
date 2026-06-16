@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from typing import Dict
 
-from .translator import CompiledProject
+from compiler.core.translator import CompiledProject
 
 
 class GeoDraftGenerator:

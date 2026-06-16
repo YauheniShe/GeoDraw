@@ -1,6 +1,6 @@
 import json
 
-from .models import GeoDraftDocument
+from compiler.models import GeoDraftDocument
 
 
 class GeoDraftParser:

@@ -1,15 +1,31 @@
+import glob
 import os
 import sys
+import traceback
 
-from compiler.generator import GeoDraftGenerator
-from compiler.parser import GeoDraftParser
-from compiler.translator import GeoDraftTranslator
+try:
+    from compiler.core.sampler import sample_and_evaluate
+    from compiler.core.translator import GeoDraftTranslator
+    from compiler.generator import GeoDraftGenerator
+    from compiler.parser import GeoDraftParser
+
+except ImportError as e:
+    print(
+        "[-] Ошибка импорта! Убедитесь, что запускаете main.py из правильной директории."
+    )
+    print(f"    Детали ошибки: {e}")
+    sys.exit(1)
 
 
-def compile_geodraft(json_path: str, output_path: str = None):
+def compile_geodraft(
+    json_path: str, output_path: str | None = None, quiet: bool = False
+) -> tuple[bool, str]:
+    """
+    Компилирует один файл GeoDraft JSON в .ggb.
+    Возвращает (успех: bool, сообщение_об_ошибке/детали: str)
+    """
     if not os.path.exists(json_path):
-        print(f"Ошибка: Файл '{json_path}' не найден.")
-        return False
+        return False, f"Файл '{json_path}' не найден."
 
     if not output_path:
         base, _ = os.path.splitext(json_path)
@@ -19,43 +35,122 @@ def compile_geodraft(json_path: str, output_path: str = None):
     translator = GeoDraftTranslator()
     generator = GeoDraftGenerator()
 
-    # main.py (фрагмент в методе compile_geodraft)
     try:
-        print(f"-> Чтение и валидация '{json_path}'...")
+        if not quiet:
+            print(f"-> Чтение и валидация '{json_path}'...")
         doc = parser.parse_file(json_path)
 
-        # Запускаем Rejection Sampling под ограничения
-        print("-> Подбор параметров конфигурации под ограничения (constraints)...")
-        from compiler.sampler import sample_and_evaluate
-
+        if not quiet:
+            print("-> Подбор параметров конфигурации под ограничения (constraints)...")
         sampled_state = sample_and_evaluate(doc)
+        if not sampled_state:
+            return (
+                False,
+                "Не удалось подобрать конфигурацию под constraints (Rejection Sampling исчерпан).",
+            )
 
-        print("-> Трансляция математической логики и конфигураций View...")
+        if not quiet:
+            print("-> Трансляция математической логики и конфигураций View...")
         project = translator.translate_project(doc, sampled_state)
 
-        # Собираем типы для корректного маппинга XML-элементов
-        original_types = {obj.name: obj.type for obj in doc.construction if obj.name}
+        original_types = {}
+        for obj in doc.construction:
+            if obj.name:
+                original_types[obj.name] = obj.type
+            elif obj.names:
+                for n in obj.names:
+                    original_types[n] = obj.type
 
-        print("-> Генерация XML и сборка ZIP-пакета .ggb...")
+        if not quiet:
+            print("-> Генерация XML и сборка ZIP-пакета .ggb...")
         generator.create_ggb(project, original_types, output_path)
 
-        print(f" Успешно скомпилировано! Файл сохранен: {output_path}")
-        return True
-    except Exception as e:
-        print(f" Ошибка компиляции: {e}")
-        import traceback
+        return True, f"Успешно сохранен: {output_path}"
 
-        traceback.print_exc()
-        return False
+    except Exception as e:
+        err_msg = str(e)
+        if not quiet:
+            traceback.print_exc()
+        return False, err_msg
+
+
+def run_batch_tests(tests_dir: str):
+    """
+    Автоматический тест-раннер. Находит все .json файлы в папке,
+    компилирует их в тихом режиме и выводит сводный красивый отчет.
+    """
+    if not os.path.isdir(tests_dir):
+        print(f"[-] Ошибка: Директория с тестами '{tests_dir}' не найдена.")
+        return
+
+    search_path = os.path.join(tests_dir, "**", "*.json")
+    json_files = glob.glob(search_path, recursive=True)
+
+    if not json_files:
+        print(
+            f"[-] В директории '{tests_dir}' не найдено файлов .json для тестирования."
+        )
+        return
+
+    print(f"\n=== Запуск тестирования GeoDraw ({len(json_files)} тестов) ===")
+
+    success_count = 0
+    failed_tests = []
+
+    for idx, filepath in enumerate(json_files, 1):
+        rel_path = os.path.relpath(filepath, tests_dir)
+        print(
+            f"[{idx}/{len(json_files)}] Тестируем {rel_path:40} ... ",
+            end="",
+            flush=True,
+        )
+
+        success, message = compile_geodraft(filepath, quiet=True)
+
+        if success:
+            print("\033[92m[OK]\033[0m")
+            success_count += 1
+        else:
+            print("\033[91m[FAIL]\033[0m")
+            failed_tests.append((rel_path, message))
+
+    print("\n================ Результаты тестирования ================")
+    print(f" Успешно пройдено: {success_count} / {len(json_files)}")
+
+    if failed_tests:
+        print(f" Провалено тестов: {len(failed_tests)}")
+        print("\nДетали ошибок:")
+        for name, err in failed_tests:
+            print(f"  - \033[91m{name}\033[0m: {err}")
+    else:
+        print(" Все тесты успешно пройдены! Архитектура работает стабильно. 🎉")
+    print("=========================================================\n")
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Использование: python main.py <путь_к_json_файлу> [выходной_файл.ggb]")
+        print("Использование:")
+        print(
+            "  1. Компиляция файла:  python main.py <путь_к_json_файлу> [выходной_файл.ggb]"
+        )
+        print("  2. Запуск тестов:      python main.py --test <папка_с_тестами_json>")
         sys.exit(1)
 
-    json_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else None
+    if sys.argv[1] == "--test":
+        if len(sys.argv) < 3:
+            print(
+                "Ошибка: Укажите папку с тестами. Пример: python main.py --test tests/"
+            )
+            sys.exit(1)
+        run_batch_tests(sys.argv[2])
+    else:
+        json_path = sys.argv[1]
+        output_path = sys.argv[2] if len(sys.argv) > 2 else None
 
-    success = compile_geodraft(json_path, output_path)
-    sys.exit(0 if success else 1)
+        success, msg = compile_geodraft(json_path, output_path)
+        if success:
+            print(f"\033[92m[+] SUCCESS:\033[0m {msg}")
+            sys.exit(0)
+        else:
+            print(f"\033[91m[-] ERROR:\033[0m {msg}")
+            sys.exit(1)
