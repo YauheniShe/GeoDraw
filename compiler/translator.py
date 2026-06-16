@@ -274,10 +274,12 @@ class GeoDraftTranslator:
                     hidden=hidden,
                 )
                 return
+
             case "AngleMeasure":
+                raw_ang = f"Angle({args.get('ends', [])[0]}, {args.get('vertex')}, {args.get('ends', [])[1]})"
                 self._emit(
                     name=name,
-                    expression=f"Angle({args.get('ends', [])[0]}, {args.get('vertex')}, {args.get('ends', [])[1]})",
+                    expression=f"If({raw_ang} > 180°, 360° - {raw_ang}, {raw_ang})",
                     ggb_type="numeric",
                     hidden=hidden,
                 )
@@ -318,10 +320,13 @@ class GeoDraftTranslator:
             if v_type == "Distance":
                 pts = var_obj.get("points", ["", ""])
                 return f"Distance({pts[0]}, {pts[1]})"
+
             elif v_type == "AngleMeasure":
                 ends = var_obj.get("ends", ["", ""])
                 v = var_obj.get("vertex", "")
-                return f"Angle({ends[0]}, {v}, {ends[1]})"
+                raw_ang = f"Angle({ends[0]}, {v}, {ends[1]})"
+                return f"If({raw_ang} > 180°, 360° - {raw_ang}, {raw_ang})"
+
             elif v_type == "Number":
                 return str(var_obj.get("value"))
         return str(var_obj)

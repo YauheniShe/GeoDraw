@@ -72,6 +72,10 @@ class GeoDraftGenerator:
                 l_type = "15" if is_goal else "0"
                 thickness = "3" if is_goal else "2"
                 ET.SubElement(elem, "lineStyle", thickness=thickness, type=l_type)
+
+            if el_type == "angle":
+                ET.SubElement(elem, "allowReflexAngle", val="false")
+                ET.SubElement(elem, "angleStyle", val="1")
             elif el_type == "point":
                 p_size = "4" if is_goal else "3"
                 p_style = "4" if is_goal else "0"
