@@ -1,4 +1,5 @@
 import math
+import random
 
 from compiler.core.disambiguation import select_disambiguation
 from compiler.core.evaluators import compile_value_argument
@@ -14,6 +15,32 @@ from compiler.math_lib.base import (
     project_point_on_line,
 )
 from compiler.operations.registry import register
+
+
+@register("Point", "Free")
+class FreePointOp:
+    @staticmethod
+    def compile_sample(args, name: str, disambiguation):
+        approx = args.get("approx_position") if args else None
+
+        def step(env):
+            if approx:
+                bx, by = approx[0], approx[1]
+            else:
+                bx, by = random.uniform(-2, 2), random.uniform(-2, 2)
+
+            env[name] = (bx + random.uniform(-1.2, 1.2), by + random.uniform(-1.2, 1.2))
+
+        return step
+
+    @staticmethod
+    def to_ggb(args, name: str, disambiguation, sampled_state, **kwargs) -> str:
+        if sampled_state and name in sampled_state:
+            pos = sampled_state[name]
+            return f"({pos[0]:.3f}, {pos[1]:.3f})"
+
+        approx = args.get("approx_position") if args else (0, 0)
+        return f"({approx[0]}, {approx[1]})"
 
 
 @register("Point", "Intersection")
@@ -204,11 +231,11 @@ class PointOnObjectOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
         obj_ref = args.get("object")
-        param_key = f"{name}_param"
 
         def step(env):
             ref = env[obj_ref]
-            param = env.get(param_key, 0.35)
+            param = random.uniform(0.01, 0.99)
+
             if type(ref) is tuple and len(ref) == 3 and type(ref[0]) is str:
                 p1, p2 = ref[1], ref[2]
                 if ref[0] == "segment":

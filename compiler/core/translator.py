@@ -1,7 +1,6 @@
-import math
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from compiler.models import GeoDraftDocument, GeoObject
 from compiler.operations import *  # noqa
@@ -213,9 +212,19 @@ class GeoDraftTranslator:
         doc_obj_types: Optional[Dict[str, str]] = None,
     ):
         doc_obj_types = doc_obj_types or {}
+
         if obj.names:
-            self._translate_macro(obj, sampled_state)
+            self._map_method_to_ggb(
+                obj.type,
+                obj.method or "Free",
+                obj.args or {},
+                obj.disambiguation,
+                obj.names,
+                sampled_state,
+                doc_obj_types,
+            )
             return
+
         name = obj.name
         args = obj.args or {}
         hidden = obj.hidden
@@ -283,9 +292,15 @@ class GeoDraftTranslator:
         )
         ggb_type = self.GGB_TYPE_MAP.get(obj.type, "numeric")
         crd = sampled_state.get(name) if (sampled_state and name is not None) else None
-        self._emit(
-            name=name, expression=expr_str, ggb_type=ggb_type, hidden=hidden, coords=crd
-        )
+
+        if expr_str:
+            self._emit(
+                name=name,
+                expression=expr_str,
+                ggb_type=ggb_type,
+                hidden=hidden,
+                coords=crd,
+            )
 
     def _var_to_ggb(self, var_obj: Any) -> str:
         if isinstance(var_obj, str):
@@ -319,7 +334,7 @@ class GeoDraftTranslator:
         method: str,
         args: dict,
         disambig: dict | None,
-        name: str | None,
+        name: Union[str, List[str], tuple, None],
         sampled_state: dict | None,
         doc_obj_types: dict,
     ) -> str:
@@ -335,134 +350,3 @@ class GeoDraftTranslator:
                 translator=self,
             )
         return "UNDEFINED"
-
-    def _translate_macro(
-        self, obj: GeoObject, sampled_state: Optional[Dict[str, Any]] = None
-    ):
-        names = obj.names
-        if names is None:
-            return None
-
-        if obj.method == "Parallelogram":
-            pts = (
-                (
-                    sampled_state[names[0]],
-                    sampled_state[names[1]],
-                    sampled_state[names[2]],
-                )
-                if sampled_state
-                else [(0, 0), (3, 0), (4, 3)]
-            )
-            for i in range(3):
-                self._emit(
-                    name=names[i],
-                    expression=f"({pts[i][0]:.3f}, {pts[i][1]:.3f})",
-                    ggb_type="point",
-                )
-            self._emit(
-                name=names[3],
-                expression=f"{names[0]} + {names[2]} - {names[1]}",
-                ggb_type="point",
-            )
-        elif obj.method == "FreeTriangle":
-            pts = (
-                [sampled_state[n] for n in names[:3]]
-                if sampled_state
-                else [(0, 0), (4, 0), (1, 3)]
-            )
-            for i in range(3):
-                self._emit(
-                    name=names[i],
-                    expression=f"({pts[i][0]:.3f}, {pts[i][1]:.3f})",
-                    ggb_type="point",
-                )
-        elif obj.method in ("Square", "Rectangle"):
-            if obj.method == "Square":
-                self._emit(name=names[0], expression="(0, 0)", ggb_type="point")
-                self._emit(name=names[1], expression="(3, 0)", ggb_type="point")
-                self._emit(
-                    name=names[2],
-                    expression=f"Rotate({names[0]}, -90°, {names[1]})",
-                    ggb_type="point",
-                )
-                self._emit(
-                    name=names[3],
-                    expression=f"Rotate({names[1]}, 90°, {names[0]})",
-                    ggb_type="point",
-                )
-            else:
-                pts = (
-                    [sampled_state[n] for n in names[:4]]
-                    if sampled_state
-                    else [(0, 0), (3, 0), (3, 3), (0, 3)]
-                )
-                for i in range(4):
-                    self._emit(
-                        name=names[i],
-                        expression=f"({pts[i][0]:.3f}, {pts[i][1]:.3f})",
-                        ggb_type="point",
-                    )
-        elif obj.method in ("Trapezoid", "IsoscelesTrapezoid", "RightTrapezoid"):
-            pts = (
-                [sampled_state[n] for n in names[:4]]
-                if sampled_state
-                else [(0, 0), (4, 0), (3, 3), (1, 3)]
-            )
-            for i in range(4):
-                self._emit(
-                    name=names[i],
-                    expression=f"({pts[i][0]:.3f}, {pts[i][1]:.3f})",
-                    ggb_type="point",
-                )
-        elif obj.method == "EquilateralTriangle":
-            self._emit(name=names[0], expression="(0, 0)", ggb_type="point")
-            self._emit(name=names[1], expression="(3, 0)", ggb_type="point")
-            self._emit(
-                name=names[2],
-                expression=f"Rotate({names[1]}, 60°, {names[0]})",
-                ggb_type="point",
-            )
-        elif obj.method == "CyclicQuadrilateral":
-            pts = (
-                [sampled_state[n] for n in names[:4]]
-                if sampled_state
-                else [(3, 0), (0, 3), (-3, 0), (0, -3)]
-            )
-            for i in range(3):
-                self._emit(
-                    name=names[i],
-                    expression=f"({pts[i][0]:.3f}, {pts[i][1]:.3f})",
-                    ggb_type="point",
-                )
-            circ_name = f"circ_{names[0]}{names[1]}{names[2]}"
-            self._emit(
-                name=circ_name,
-                expression=f"Circle({names[0]}, {names[1]}, {names[2]})",
-                ggb_type="conic",
-                hidden=True,
-            )
-            self._emit(
-                name=names[3],
-                expression=f"Point({circ_name})",
-                ggb_type="point",
-                coords=(pts[3][0], pts[3][1]),
-            )
-        elif obj.method == "RegularPolygon":
-            n = obj.args.get("vertices", 5) if obj.args else 5
-            pts = (
-                [sampled_state[names[i]] for i in range(n)]
-                if sampled_state
-                else [
-                    (
-                        3 * math.cos(2 * math.pi * i / n),
-                        3 * math.sin(2 * math.pi * i / n),
-                    )
-                    for i in range(n)
-                ]
-            )
-            for i in range(len(names)):
-                self._emit(
-                    name=names[i],
-                    expression=f"({pts[i][0]:.3f}, {pts[i][1]:.3f})",
-                    ggb_type="point",
-                )
