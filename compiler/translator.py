@@ -355,9 +355,22 @@ class GeoDraftTranslator:
             case "Translation":
                 return f"Translate({args.get('target')}, Vector({args['vector'][0]}, {args['vector'][1]}))"
             case "Rotation":
-                return f"Rotate({args.get('target')}, {args.get('angle')}, {args.get('center')})"
+                angle_str = self._var_to_ggb(args.get("angle"))
+                orient = "counterclockwise"
+                if disambig:
+                    orient = disambig.get(
+                        "value", disambig.get("orientation", "counterclockwise")
+                    )
+                if orient == "clockwise":
+                    angle_str = f"-({angle_str})"
+                return (
+                    f"Rotate({args.get('target')}, {angle_str}, {args.get('center')})"
+                )
             case "Homothety":
-                return f"Dilate({args.get('target')}, {args.get('ratio')}, {args.get('center')})"
+                ratio_str = self._var_to_ggb(args.get("ratio"))
+                return (
+                    f"Dilate({args.get('target')}, {ratio_str}, {args.get('center')})"
+                )
             case "Inversion":
                 return f"Reflect({args.get('target')}, {args.get('circle')})"
 
@@ -369,9 +382,11 @@ class GeoDraftTranslator:
                 case "PointOnObject":
                     return f"Point({args.get('object')})"
                 case "PointOnSegment":
-                    return f"(1 - {args.get('ratio')}) * {args['points'][0]} + {args.get('ratio')} * {args['points'][1]}"
+                    ratio_str = self._var_to_ggb(args.get("ratio"))
+                    return f"(1 - ({ratio_str})) * {args['points'][0]} + ({ratio_str}) * {args['points'][1]}"
                 case "PointOnRay":
-                    return f"{args['points'][0]} + {args.get('distance')} * UnitVector({args['points'][1]} - {args['points'][0]})"
+                    dist_str = self._var_to_ggb(args.get("distance"))
+                    return f"{args['points'][0]} + ({dist_str}) * UnitVector({args['points'][1]} - {args['points'][0]})"
                 case "Midpoint":
                     return f"Midpoint({args['points'][0]}, {args['points'][1]})"
                 case "Center":

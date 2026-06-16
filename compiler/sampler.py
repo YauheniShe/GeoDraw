@@ -200,6 +200,35 @@ def get_line_eq(obj_ref):
     return None
 
 
+def get_two_points_on_line(line):
+    """Возвращает две любые точки, лежащие на прямой (нужно для преобразований)."""
+    a, b, c = line
+    if abs(a) > abs(b):
+        return ((-c) / a, 0), ((-b - c) / a, 1)
+    else:
+        return (0, (-c) / b), (1, (-a - c) / b)
+
+
+def apply_transform(obj, transform_pt, scale=1.0):
+    """
+    Универсально применяет функцию трансформации точки transform_pt ко всему объекту.
+    """
+    if isinstance(obj, tuple):
+        if (
+            len(obj) == 2
+            and isinstance(obj[0], tuple)
+            and isinstance(obj[1], (int, float))
+        ):
+            return (transform_pt(obj[0]), obj[1] * abs(scale))
+        elif len(obj) == 3 and isinstance(obj[0], str):
+            return (obj[0], transform_pt(obj[1]), transform_pt(obj[2]))
+        elif len(obj) == 3 and isinstance(obj[0], (int, float)):
+            p1, p2 = get_two_points_on_line(obj)
+            return line_from_points(transform_pt(p1), transform_pt(p2))
+
+    return transform_pt(obj)
+
+
 def select_disambiguation(candidates, rule, params, resolved_env):
     if not candidates:
         raise ValueError("Точки пересечения не найдены")
@@ -352,6 +381,104 @@ def compile_execution_plan(doc: GeoDraftDocument):
         args = obj.args or {}
         method = obj.method or "Free"
 
+        if method in [
+            "Reflection",
+            "PointReflection",
+            "Translation",
+            "Rotation",
+            "Homothety",
+        ]:
+            t_obj = args.get("target")
+
+            if method == "Reflection":
+                ax = args.get("axis")
+                plan.append(
+                    lambda env, n=name, t=t_obj, ax=ax: env.update(
+                        {
+                            n: apply_transform(
+                                env[t], lambda p: reflect_point_on_line(p, env[ax]), 1.0
+                            )
+                        }
+                    )
+                )
+            elif method == "PointReflection":
+                c = args.get("center")
+                plan.append(
+                    lambda env, n=name, t=t_obj, c=c: env.update(
+                        {
+                            n: apply_transform(
+                                env[t],
+                                lambda p: (2 * env[c][0] - p[0], 2 * env[c][1] - p[1]),
+                                1.0,
+                            )
+                        }
+                    )
+                )
+            elif method == "Translation":
+                v0, v1 = args["vector"]
+                plan.append(
+                    lambda env, n=name, t=t_obj, v0=v0, v1=v1: env.update(
+                        {
+                            n: apply_transform(
+                                env[t],
+                                lambda p: (
+                                    p[0] + env[v1][0] - env[v0][0],
+                                    p[1] + env[v1][1] - env[v0][1],
+                                ),
+                                1.0,
+                            )
+                        }
+                    )
+                )
+            elif method == "Rotation":
+                c = args.get("center")
+                ang_eval = compile_value_argument(args.get("angle"))
+
+                orient = "counterclockwise"
+                if obj.disambiguation:
+                    orient = obj.disambiguation.get(
+                        "value",
+                        obj.disambiguation.get("orientation", "counterclockwise"),
+                    )
+
+                def step_rotation(env, n=name, t=t_obj, c=c, a_eval=ang_eval, o=orient):
+                    center = env[c]
+                    angle = a_eval(env)
+                    if o == "clockwise":
+                        angle = -angle
+                    cos_a, sin_a = math.cos(angle), math.sin(angle)
+
+                    def rot_pt(p):
+                        dx, dy = p[0] - center[0], p[1] - center[1]
+                        return (
+                            center[0] + dx * cos_a - dy * sin_a,
+                            center[1] + dx * sin_a + dy * cos_a,
+                        )
+
+                    env[n] = apply_transform(env[t], rot_pt, 1.0)
+
+                plan.append(step_rotation)
+
+            elif method == "Homothety":
+                c = args.get("center")
+                r_eval = compile_value_argument(args.get("ratio"))
+
+                def step_homothety(env, n=name, t=t_obj, c=c, r_eval=r_eval):
+                    center = env[c]
+                    ratio = r_eval(env)
+
+                    def hom_pt(p):
+                        return (
+                            center[0] + ratio * (p[0] - center[0]),
+                            center[1] + ratio * (p[1] - center[1]),
+                        )
+
+                    env[n] = apply_transform(env[t], hom_pt, ratio)
+
+                plan.append(step_homothety)
+
+            continue
+
         if obj.type == "Line":
             if method == "LineThrough":
                 p0, p1 = args["points"]
@@ -496,6 +623,37 @@ def compile_execution_plan(doc: GeoDraftDocument):
                         )
 
                 plan.append(step_intersection)
+
+            elif method == "PointOnSegment":
+                p0, p1 = args["points"]
+                r_eval = compile_value_argument(args.get("ratio"))
+
+                def step_pos(env, n=name, a=p0, b=p1, r=r_eval):
+                    pa, pb = env[a], env[b]
+                    ratio = r(env)
+                    env[n] = (
+                        pa[0] + ratio * (pb[0] - pa[0]),
+                        pa[1] + ratio * (pb[1] - pa[1]),
+                    )
+
+                plan.append(step_pos)
+
+            elif method == "PointOnRay":
+                p0, p1 = args["points"]
+                d_eval = compile_value_argument(args.get("distance"))
+
+                def step_por(env, n=name, a=p0, b=p1, d_ev=d_eval):
+                    pa, pb = env[a], env[b]
+                    dist_val = d_ev(env)
+                    d_ab = dist(pa, pb)
+                    if d_ab < 1e-9:
+                        raise ValueError("Точки для луча совпадают")
+                    env[n] = (
+                        pa[0] + dist_val * (pb[0] - pa[0]) / d_ab,
+                        pa[1] + dist_val * (pb[1] - pa[1]) / d_ab,
+                    )
+
+                plan.append(step_por)
 
             elif method == "Reflection":
                 t, ax = args.get("target"), args.get("axis")
