@@ -2,12 +2,13 @@ import xml.etree.ElementTree as ET
 import zipfile
 from typing import Dict
 
+from compiler.config import GeoDrawConfig
 from compiler.core.translator import CompiledProject
 
 
 class GeoDraftGenerator:
-    def __init__(self):
-        pass
+    def __init__(self, config: GeoDrawConfig | None = None):
+        self.config = config or GeoDrawConfig()
 
     def generate_xml(
         self, project: CompiledProject, original_types: Dict[str, str]
@@ -21,9 +22,11 @@ class GeoDraftGenerator:
         ET.SubElement(view, "size", width="800", height="600")
         ET.SubElement(view, "coordSystem", xZero="250", yZero="350", scale="50")
 
-        ET.SubElement(view, "axis", id="0", show="false")
-        ET.SubElement(view, "axis", id="1", show="false")
-        ET.SubElement(view, "grid", show="false")
+        show_ax_str = str(self.config.show_axes).lower()
+        show_gr_str = str(self.config.show_grid).lower()
+        ET.SubElement(view, "axis", id="0", show=show_ax_str)
+        ET.SubElement(view, "axis", id="1", show=show_ax_str)
+        ET.SubElement(view, "grid", show=show_gr_str)
 
         construction = ET.SubElement(root, "construction", title="GeoDraft Export")
 
@@ -47,42 +50,64 @@ class GeoDraftGenerator:
                     z="1.0",
                 )
 
+            is_goal = getattr(instr, "is_goal", False)
+            if is_goal:
+                style = self.config.goal
+            elif el_type == "point":
+                style = self.config.point
+            elif el_type == "polygon":
+                style = self.config.polygon
+            elif el_type == "angle":
+                style = self.config.angle
+            else:
+                style = self.config.line
+
             show_val = "true" if project.visibility.get(instr.name, True) else "false"
 
-            show_label = (
-                "true"
-                if el_type == "point"
-                and not instr.name.startswith("anon")
-                and not instr.name.startswith("goal")
-                and not instr.name.startswith("draw")
-                else "false"
+            is_helper = (
+                instr.name.startswith("anon")
+                or instr.name.startswith("draw")
+                or instr.name.startswith("goal")
             )
+
+            if not is_helper and style.label_style != "none":
+                show_label = "true"
+            else:
+                show_label = "false"
+
             ET.SubElement(elem, "show", object=show_val, label=show_label)
 
-            is_goal = getattr(instr, "is_goal", False)
+            if show_label == "true":
+                if style.label_style == "latex":
+                    ET.SubElement(elem, "labelMode", val="3")
+                    ET.SubElement(elem, "caption", val=f"${instr.name}$")
+                elif style.label_style == "name":
+                    ET.SubElement(elem, "labelMode", val="0")
 
-            if is_goal:
-                alpha_val = "0.1" if el_type == "angle" else "0.0"
-                ET.SubElement(elem, "objColor", r="200", g="0", b="0", alpha=alpha_val)
+            r, g, b = style.color
+            if el_type in ["angle", "polygon"]:
+                alpha_val = str(style.alpha)
             else:
-                alpha_val = "0.0" if el_type in ["polygon", "conic", "angle"] else "1.0"
-                ET.SubElement(elem, "objColor", r="0", g="0", b="0", alpha=alpha_val)
+                alpha_val = "0.0"
+
+            ET.SubElement(
+                elem, "objColor", r=str(r), g=str(g), b=str(b), alpha=alpha_val
+            )
 
             if el_type in ["line", "segment", "ray", "conic", "polygon", "angle"]:
-                l_type = "15" if is_goal else "0"
-                thickness = "3" if is_goal else "2"
-                ET.SubElement(elem, "lineStyle", thickness=thickness, type=l_type)
+                ET.SubElement(
+                    elem,
+                    "lineStyle",
+                    thickness=str(style.line_thickness),
+                    type=str(style.line_style),
+                )
+
+            if el_type == "point":
+                ET.SubElement(elem, "pointSize", val=str(style.point_size))
+                ET.SubElement(elem, "pointStyle", val=str(style.point_style))
 
             if el_type == "angle":
                 ET.SubElement(elem, "allowReflexAngle", val="false")
-                ET.SubElement(elem, "angleStyle", val="1")
-            elif el_type == "point":
-                p_size = "4" if is_goal else "3"
-                p_style = "4" if is_goal else "0"
-                ET.SubElement(elem, "pointSize", val=p_size)
-                ET.SubElement(elem, "pointStyle", val=p_style)
-
-            if el_type == "angle":
                 ET.SubElement(elem, "angleStyle", val="1")
 
         xml_str = ET.tostring(root, encoding="utf-8").decode("utf-8")
@@ -92,7 +117,6 @@ class GeoDraftGenerator:
         self, project: CompiledProject, original_types: Dict[str, str], output_path: str
     ):
         xml_content = self.generate_xml(project, original_types)
-
         with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
             zip_file.writestr("geogebra.xml", xml_content)
             zip_file.writestr("geogebra_javascript.js", "function ggbOnInit() {}")

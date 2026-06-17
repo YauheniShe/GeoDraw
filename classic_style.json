@@ -1,0 +1,54 @@
+{
+    "show_axes": false,
+    "show_grid": false,
+    "point": {
+        "color": [
+            0,
+            100,
+            0
+        ],
+        "point_size": 4,
+        "label_style": "latex"
+    },
+    "line": {
+        "color": [
+            50,
+            50,
+            50
+        ],
+        "line_thickness": 5,
+        "label_style": "none"
+    },
+    "polygon": {
+        "color": [
+            153,
+            51,
+            0
+        ],
+        "alpha": 0.1,
+        "line_thickness": 5,
+        "label_style": "none"
+    },
+    "angle": {
+        "color": [
+            0,
+            100,
+            0
+        ],
+        "alpha": 0.1,
+        "line_thickness": 5,
+        "label_style": "none"
+    },
+    "goal": {
+        "color": [
+            255,
+            0,
+            0
+        ],
+        "alpha": 0.1,
+        "line_thickness": 5,
+        "line_style": 15,
+        "point_size": 5,
+        "label_style": "latex"
+    }
+}

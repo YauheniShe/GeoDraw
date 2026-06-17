@@ -1,9 +1,11 @@
+import argparse
 import glob
 import os
 import sys
 import traceback
 
 try:
+    from compiler.config import GeoDrawConfig
     from compiler.core.sampler import sample_and_evaluate
     from compiler.core.translator import GeoDraftTranslator
     from compiler.generator import GeoDraftGenerator
@@ -18,7 +20,10 @@ except ImportError as e:
 
 
 def compile_geodraft(
-    json_path: str, output_path: str | None = None, quiet: bool = False
+    json_path: str,
+    output_path: str | None = None,
+    quiet: bool = False,
+    config_path: str | None = None,
 ) -> tuple[bool, str]:
     """
     Компилирует один файл GeoDraft JSON в .ggb.
@@ -31,9 +36,12 @@ def compile_geodraft(
         base, _ = os.path.splitext(json_path)
         output_path = base + ".ggb"
 
+    config = (
+        GeoDrawConfig.load_from_file(config_path) if config_path else GeoDrawConfig()
+    )
     parser = GeoDraftParser()
     translator = GeoDraftTranslator()
-    generator = GeoDraftGenerator()
+    generator = GeoDraftGenerator(config=config)
 
     try:
         if not quiet:
@@ -128,26 +136,33 @@ def run_batch_tests(tests_dir: str):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Использование:")
-        print(
-            "  1. Компиляция файла:  python main.py <путь_к_json_файлу> [выходной_файл.ggb]"
-        )
-        print("  2. Запуск тестов:      python main.py --test <папка_с_тестами_json>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="GeoDraw Compiler")
+    parser.add_argument(
+        "input_json", help="Путь к JSON файлу задачи или папке с тестами", nargs="?"
+    )
+    parser.add_argument("output_ggb", help="Выходной файл .ggb", nargs="?")
+    parser.add_argument(
+        "--test", action="store_true", help="Запустить режим тестирования"
+    )
+    parser.add_argument(
+        "--style", "-s", type=str, help="Путь к JSON файлу с кастомным стилем"
+    )
 
-    if sys.argv[1] == "--test":
-        if len(sys.argv) < 3:
-            print(
-                "Ошибка: Укажите папку с тестами. Пример: python main.py --test tests/"
-            )
+    args = parser.parse_args()
+
+    if args.test:
+        if not args.input_json:
+            print("Ошибка: Укажите папку с тестами.")
             sys.exit(1)
-        run_batch_tests(sys.argv[2])
+        run_batch_tests(args.input_json)
     else:
-        json_path = sys.argv[1]
-        output_path = sys.argv[2] if len(sys.argv) > 2 else None
+        if not args.input_json:
+            parser.print_help()
+            sys.exit(1)
 
-        success, msg = compile_geodraft(json_path, output_path)
+        success, msg = compile_geodraft(
+            args.input_json, args.output_ggb, config_path=args.style
+        )
         if success:
             print(f"\033[92m[+] SUCCESS:\033[0m {msg}")
             sys.exit(0)
