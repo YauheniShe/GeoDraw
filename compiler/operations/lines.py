@@ -138,6 +138,10 @@ class LineByAngleOp:
 
         def step(env):
             l_eq = get_line_eq(env[line_ref])
+            if l_eq is None:
+                raise ValueError(
+                    f"Объект '{line_ref}' не является валидной прямой, отрезком или лучом."
+                )
             p = env[pt]
             theta = ang_eval(env)
             a, b, c = l_eq

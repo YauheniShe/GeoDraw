@@ -13,7 +13,7 @@ def compile_execution_plan(doc: GeoDraftDocument):
     plan = []
     for obj in doc.construction:
         method = obj.method or "Free"
-        args = obj.args or {}
+        args: Any = obj.args or {}
         if obj.names:
             names = tuple(obj.names)
             registry_key = (obj.type, method)
@@ -25,7 +25,6 @@ def compile_execution_plan(doc: GeoDraftDocument):
                 )
             continue
 
-        # 2. Обработка обычных объектов
         name = obj.name
         registry_key = (obj.type, method)
         if registry_key in SAMPLER_REGISTRY:
@@ -36,7 +35,6 @@ def compile_execution_plan(doc: GeoDraftDocument):
             )
             continue
 
-        # 3. Вспомогательные скалярные вычисления
         if obj.type == "MathExpression":
             expr_str = args.get("expression", "")
             var_evals = compile_var_evaluators(args.get("variables", {}))

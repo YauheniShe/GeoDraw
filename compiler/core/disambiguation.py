@@ -96,8 +96,7 @@ def select_disambiguation(candidates, rule, params, resolved_env):
                 if p[1] > min(p1y, p2y):
                     if p[1] <= max(p1y, p2y):
                         if p[0] <= max(p1x, p2x):
-                            if p1y != p2y:
-                                xinters = (p[1] - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                            xinters = (p[1] - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
                             if p1x == p2x or p[0] <= xinters:
                                 inside = not inside
                 p1x, p1y = p2x, p2y
