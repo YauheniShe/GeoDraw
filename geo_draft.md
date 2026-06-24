@@ -107,7 +107,7 @@
 | `PolarLine` | `{"point": "<Point>", "object": "<Circle/Conic>"}` | Поляра точки относительно кривой. |
 | `EulerLine` | `{"triangle": ["A", "B", "C"]}` | Прямая Эйлера для треугольника. |
 | `SimsonLine` | `{"point": "<Point>", "triangle": ["A", "B", "C"]}` | Прямая Симсона (требует точку на описанной окружности). |
-| `Symmedian` | `{"triangle": ["A", "B", "C"], "vertex": "B"}` | Симедиана (луч/прямая). |
+| `Symmedian` | `{"triangle": ["A", "B", "C"], "vertex": "B"}` | Симедиана (прямая). |
 
 ### 3.4. Окружности (Circle)
 | `method` | `args` | Описание |
