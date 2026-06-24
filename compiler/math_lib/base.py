@@ -20,12 +20,18 @@ def line_from_points(p1, p2):
 
 def project_point_on_line(p, line):
     a, b, c = line
+    norm = math.hypot(a, b)
+    if norm > 1e-9:
+        a, b, c = a / norm, b / norm, c / norm
     d = a * p[0] + b * p[1] + c
     return (p[0] - a * d, p[1] - b * d)
 
 
 def reflect_point_on_line(p, line):
     a, b, c = line
+    norm = math.hypot(a, b)
+    if norm > 1e-9:
+        a, b, c = a / norm, b / norm, c / norm
     d = a * p[0] + b * p[1] + c
     return (p[0] - 2 * a * d, p[1] - 2 * b * d)
 
@@ -129,6 +135,9 @@ def orthocenter(p1, p2, p3):
 
 def intersect_line_circle(line, circle):
     a, b, c = line
+    norm = math.hypot(a, b)
+    if norm > 1e-9:
+        a, b, c = a / norm, b / norm, c / norm
     (x0, y0), r = circle
     d = a * x0 + b * y0 + c
     if abs(d) > r + 1e-9:
@@ -163,6 +172,10 @@ def get_line_eq(obj_ref):
         if type(obj_ref[0]) is str and obj_ref[0] in ("segment", "ray"):
             return line_from_points(obj_ref[1], obj_ref[2])
         elif type(obj_ref[0]) is not str:
+            a, b, c = obj_ref
+            norm = math.hypot(a, b)
+            if norm > 1e-9:
+                return (a / norm, b / norm, c / norm)
             return obj_ref
     return None
 
