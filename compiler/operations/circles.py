@@ -1,4 +1,5 @@
 import math
+import re
 
 from compiler.core.evaluators import compile_value_argument
 from compiler.math_lib.base import (
@@ -97,7 +98,7 @@ class ApolloniusCircleOp:
 
 
 @register("Segment", "Free")
-@register("Segment", "LineThrough")
+@register("Segment", "SegmentByPoints")
 class SegmentOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
@@ -114,11 +115,14 @@ class SegmentOp:
 
 
 @register("Ray", "Free")
-@register("Ray", "LineThrough")
+@register("Ray", "RayByPoints")
 class RayOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
-        p0, p1 = args["points"]
+        if "origin" in args and "direction_point" in args:
+            p0, p1 = args["origin"], args["direction_point"]
+        else:
+            p0, p1 = args["points"]
 
         def step(env):
             env[name] = ("ray", env[p0], env[p1])
@@ -127,7 +131,11 @@ class RayOp:
 
     @staticmethod
     def to_ggb(args, name, **kwargs):
-        return f"Ray({args['points'][0]}, {args['points'][1]})"
+        if "origin" in args and "direction_point" in args:
+            p0, p1 = args["origin"], args["direction_point"]
+        else:
+            p0, p1 = args["points"]
+        return f"Ray({p0}, {p1})"
 
 
 @register("Ray", "RayByAngle")
@@ -162,14 +170,25 @@ class RayByAngleOp:
     @staticmethod
     def to_ggb(args, name, translator, disambiguation, **kwargs):
         ang_str = translator._var_to_ggb(args["angle"])
-        orient = (
-            disambiguation.get("orientation", "counterclockwise")
-            if disambiguation
-            else "counterclockwise"
-        )
+        orient = "counterclockwise"
+        if disambiguation:
+            orient = disambiguation.get(
+                "value", disambiguation.get("orientation", "counterclockwise")
+            )
         if orient == "clockwise":
             ang_str = f"-({ang_str})"
-        return f"Rotate({args['ray']}, {ang_str}, StartPoint({args['ray']}))"
+
+        ray_name = args["ray"]
+        ray_instr = next(
+            (inst for inst in translator.instructions if inst.name == ray_name), None
+        )
+        start_pt = "A"
+        if ray_instr:
+            m = re.match(r"Ray\(([^,]+),", ray_instr.expression)
+            if m:
+                start_pt = m.group(1).strip()
+
+        return f"Rotate({args['ray']}, {ang_str}, {start_pt})"
 
 
 @register("Circle", "Incircle")
@@ -290,7 +309,7 @@ class MixtilinearIncircleOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
         triangle = args["triangle"]
-        v = args["angle_vertex"]
+        v = args["vertex"]
         ends = [p for p in triangle if p != v]
 
         def step(env):
@@ -327,7 +346,7 @@ class MixtilinearIncircleOp:
     @staticmethod
     def to_ggb(args, name, translator, **kwargs):
         triangle = args["triangle"]
-        v = args["angle_vertex"]
+        v = args["vertex"]
         ends = [p for p in triangle if p != v]
         A, B, C = v, ends[0], ends[1]
         inc_name, bis_name, l_perp_name = f"inc_{name}", f"bis_{name}", f"l_perp_{name}"

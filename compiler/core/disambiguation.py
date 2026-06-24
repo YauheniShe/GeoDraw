@@ -40,21 +40,30 @@ def select_disambiguation(candidates, rule, params, resolved_env):
 
     elif rule == "order_on_line":
         order = params.get("order", [])
-        A_pt = resolved_env[order[0]]
-        B_pt = resolved_env[order[1]]
-        dx, dy = B_pt[0] - A_pt[0], B_pt[1] - A_pt[1]
-
-        def get_proj_val(p):
-            return (p[0] - A_pt[0]) * dx + (p[1] - A_pt[1]) * dy
+        if len(order) < 2:
+            return candidates[0]
 
         for c_pt in candidates:
             pts_map = {
                 name: resolved_env[name] if name in resolved_env else c_pt
                 for name in order
             }
+
+            p_first = pts_map[order[0]]
+            p_last = pts_map[order[-1]]
+            dx, dy = p_last[0] - p_first[0], p_last[1] - p_first[1]
+
+            if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+                continue
+
+            def get_proj_val(p):
+                return p[0] * dx + p[1] * dy
+
             vals = [get_proj_val(pts_map[n]) for n in order]
+
             if all(vals[i] < vals[i + 1] for i in range(len(vals) - 1)):
                 return c_pt
+
         return candidates[0]
 
     elif rule == "inside_circumcircle":

@@ -106,12 +106,16 @@ class CommonTangentOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
         c1, c2 = args.get("circle1"), args.get("circle2")
-        is_ext = (
-            (disambiguation.get("direction", "external") == "external")
-            if disambiguation
-            else True
-        )
-        idx = disambiguation.get("algebraic_index", 1) if disambiguation else 1
+
+        is_ext = True
+        idx = 1
+        if disambiguation:
+            if disambiguation.get("rule") == "tangent_direction":
+                is_ext = disambiguation.get("value", "external") == "external"
+                idx = disambiguation.get("index", 1)
+            else:
+                is_ext = disambiguation.get("direction", "external") == "external"
+                idx = disambiguation.get("algebraic_index", 1)
 
         def step(env):
             tangents = common_tangents(env[c1], env[c2], external=is_ext)
@@ -123,7 +127,12 @@ class CommonTangentOp:
 
     @staticmethod
     def to_ggb(args, name, disambiguation, **kwargs) -> str:
-        idx = disambiguation.get("algebraic_index", 1) if disambiguation else 1
+        idx = 1
+        if disambiguation:
+            if disambiguation.get("rule") == "tangent_direction":
+                idx = disambiguation.get("index", 1)
+            else:
+                idx = disambiguation.get("algebraic_index", 1)
         return (
             f"Element({{Tangent({args.get('circle1')}, {args.get('circle2')})}}, {idx})"
         )
@@ -163,7 +172,13 @@ class TangentLineOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
         pt, circle_ref = args["point"], args["object"]
-        idx = disambiguation.get("algebraic_index", 1) if disambiguation else 1
+
+        idx = 1
+        if disambiguation:
+            if disambiguation.get("rule") == "algebraic_index":
+                idx = disambiguation.get("index", 1)
+            else:
+                idx = disambiguation.get("algebraic_index", 1)
 
         def step(env):
             tangents = tangents_from_point_to_circle(env[pt], env[circle_ref])
@@ -175,7 +190,12 @@ class TangentLineOp:
 
     @staticmethod
     def to_ggb(args, name, disambiguation, **kwargs):
-        idx = disambiguation.get("algebraic_index", 1) if disambiguation else 1
+        idx = 1
+        if disambiguation:
+            if disambiguation.get("rule") == "algebraic_index":
+                idx = disambiguation.get("index", 1)
+            else:
+                idx = disambiguation.get("algebraic_index", 1)
         return f"Element({{Tangent({args['point']}, {args['object']})}}, {idx})"
 
 
@@ -199,15 +219,52 @@ class RadicalAxisOp:
         return step
 
     @staticmethod
-    def to_ggb(args, name, **kwargs):
-        return f"RadicalAxis({args['circle1']}, {args['circle2']})"
+    def to_ggb(args, name, translator, **kwargs):
+        c1, c2 = args["circle1"], args["circle2"]
+
+        d_name = translator._emit(
+            name=f"dist_{name}",
+            expression=f"Distance(Center({c1}), Center({c2}))",
+            ggb_type="numeric",
+            hidden=True,
+        )
+
+        r1_name = translator._emit(
+            name=f"r1_{name}",
+            expression=f"Radius({c1})",
+            ggb_type="numeric",
+            hidden=True,
+        )
+
+        r2_name = translator._emit(
+            name=f"r2_{name}",
+            expression=f"Radius({c2})",
+            ggb_type="numeric",
+            hidden=True,
+        )
+
+        x1_name = translator._emit(
+            name=f"x1_{name}",
+            expression=f"({d_name}^2 + {r1_name}^2 - {r2_name}^2) / (2 * {d_name})",
+            ggb_type="numeric",
+            hidden=True,
+        )
+
+        T_name = translator._emit(
+            name=f"T_{name}",
+            expression=f"Center({c1}) + {x1_name} * UnitVector(Center({c2}) - Center({c1}))",
+            ggb_type="point",
+            hidden=True,
+        )
+
+        return f"PerpendicularLine({T_name}, Line(Center({c1}), Center({c2})))"
 
 
 @register("Line", "PolarLine")
 class PolarLineOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
-        pt, circ_ref = args["point"], args["circle"]
+        pt, circ_ref = args["point"], args["object"]
 
         def step(env):
             p = env[pt]
@@ -224,7 +281,7 @@ class PolarLineOp:
 
     @staticmethod
     def to_ggb(args, name, **kwargs):
-        return f"Polar({args['point']}, {args['circle']})"
+        return f"Polar({args['point']}, {args['object']})"
 
 
 @register("Line", "EulerLine")

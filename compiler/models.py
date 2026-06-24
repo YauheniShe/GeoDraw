@@ -39,7 +39,7 @@ class DictModel(BaseModel):
         return [(k, getattr(self, k)) for k in self.keys()]
 
 
-ConstraintType = Literal["IsAcute", "DistanceInequality", "Convex"]
+ConstraintType = Literal["IsAcute", "Inequality", "Convex"]
 GoalType = Literal[
     "Belongs",
     "Collinear",
@@ -59,14 +59,91 @@ Ref = Union[str, Dict[str, Any]]
 ScalarRef = Union[str, float, Dict[str, Any]]
 
 
-class ConstraintDef(DictModel):
-    type: ConstraintType = Field(..., description="Тип геометрического ограничения")
-    args: List[Any] = Field(..., description="Аргументы ограничения")
+class ArgsPoints(DictModel):
+    points: List[Ref]
 
 
-class GoalDef(DictModel):
-    type: GoalType = Field(..., description="Тип доказываемого утверждения (цели)")
-    args: List[Any] = Field(..., description="Аргументы цели")
+class BaseConstraint(DictModel):
+    pass
+
+
+class ConstraintIsAcute(BaseConstraint):
+    type: Literal["IsAcute"]
+    args: ArgsPoints
+
+
+class ConstraintConvex(BaseConstraint):
+    type: Literal["Convex"]
+    args: ArgsPoints
+
+
+class ConstraintInequality(BaseConstraint):
+    type: Literal["Inequality"]
+    operator: Literal[">", "<", ">=", "<=", "=="]
+    left: ScalarRef
+    right: ScalarRef
+
+
+ConstraintDef = Union[ConstraintIsAcute, ConstraintConvex, ConstraintInequality]
+
+
+class GoalArgsPoints(DictModel):
+    points: List[Ref]
+
+
+class GoalArgsLines(DictModel):
+    lines: List[Ref]
+
+
+class GoalArgsObjects(DictModel):
+    objects: List[Ref]
+
+
+class GoalArgsBelongs(DictModel):
+    point: Ref
+    object: Ref
+
+
+class GoalArgsEqual(DictModel):
+    values: List[ScalarRef]
+
+
+class BaseGoal(DictModel):
+    pass
+
+
+class GoalBelongs(BaseGoal):
+    type: Literal["Belongs"]
+    args: GoalArgsBelongs
+
+
+class GoalCollinearConcyclic(BaseGoal):
+    type: Literal["Collinear", "Concyclic"]
+    args: GoalArgsPoints
+
+
+class GoalEqual(BaseGoal):
+    type: Literal["Equal"]
+    args: GoalArgsEqual
+
+
+class GoalConcurrentTangentCoincident(BaseGoal):
+    type: Literal["Concurrent", "Tangent", "Coincident"]
+    args: GoalArgsObjects
+
+
+class GoalPerpendicularParallel(BaseGoal):
+    type: Literal["Perpendicular", "Parallel"]
+    args: GoalArgsLines
+
+
+GoalDef = Union[
+    GoalBelongs,
+    GoalCollinearConcyclic,
+    GoalEqual,
+    GoalConcurrentTangentCoincident,
+    GoalPerpendicularParallel,
+]
 
 
 class ViewDef(DictModel):
@@ -79,10 +156,6 @@ class ViewDef(DictModel):
     towards: Optional[str] = None
     vertex: Optional[str] = None
     ends: Optional[List[str]] = None
-
-
-class ArgsPoints(DictModel):
-    points: List[Ref]
 
 
 class ArgsTriangle(DictModel):
@@ -190,13 +263,34 @@ class ArgsTransformHomothety(DictModel):
 
 class ArgsTransformInversion(DictModel):
     target: Ref
-    center: Ref
-    circle: Ref
+    circle: Optional[Ref] = None
+    center: Optional[Ref] = None
+    radius: Optional[ScalarRef] = None
+
+    @model_validator(mode="after")
+    def check_inversion_args(self):
+        has_circle = self.circle is not None
+        has_center_radius = self.center is not None and self.radius is not None
+        if not (has_circle ^ has_center_radius):
+            raise ValueError(
+                "Для Inversion нужно передать либо 'circle', либо пару 'center' и 'radius'"
+            )
+        return self
 
 
 class ArgsLocus(DictModel):
     target_point: Ref
     moving_point: Ref
+
+
+class ArgsRayByPoints(DictModel):
+    origin: Ref
+    direction_point: Ref
+
+
+class ArgsRegularPolygon(DictModel):
+    points: List[Ref]
+    vertices: int
 
 
 class BaseGeoObject(DictModel):
@@ -209,6 +303,14 @@ class BaseGeoObject(DictModel):
     def check_name_exclusivity(self):
         if self.name and self.names:
             raise ValueError("Объект не может иметь одновременно 'name' и 'names'")
+        return self
+
+    @model_validator(mode="after")
+    def check_disambiguation(self):
+        if self.disambiguation is not None and "rule" not in self.disambiguation:
+            raise ValueError(
+                "Словарь disambiguation должен обязательно содержать ключ 'rule'"
+            )
         return self
 
 
@@ -334,13 +436,19 @@ class ObjMacroCyclic(BaseGeoObject):
 class ObjMacroRegular(BaseGeoObject):
     type: Literal["Point", "Polygon"]
     method: Literal["RegularPolygon"]
-    args: Optional[Dict[Literal["vertices"], int]] = None
+    args: ArgsRegularPolygon
 
 
-class ObjLinePoints(BaseGeoObject):
-    type: Literal["Line", "Segment", "Ray"]
-    method: Literal["LineThrough"]
+class ObjLineSegmentPoints(BaseGeoObject):
+    type: Literal["Line", "Segment"]
+    method: Literal["LineThrough", "SegmentByPoints"]
     args: ArgsPoints
+
+
+class ObjRayByPoints(BaseGeoObject):
+    type: Literal["Ray"]
+    method: Literal["RayByPoints"]
+    args: ArgsRayByPoints
 
 
 class ObjLinearFree(BaseGeoObject):
@@ -561,7 +669,8 @@ GeoObject = Union[
     ObjMacroNoArgs,
     ObjMacroCyclic,
     ObjMacroRegular,
-    ObjLinePoints,
+    ObjLineSegmentPoints,
+    ObjRayByPoints,
     ObjLinearFree,
     ObjLineParallelPerp,
     ObjLineByAngle,

@@ -157,21 +157,46 @@ class HomothetyOp:
 class InversionOp:
     @staticmethod
     def compile_sample(args, name: str, disambiguation):
-        t, c, circ_ref = args["target"], args["center"], args["circle"]
+        t = args["target"]
 
-        def step(env):
-            target_pt, center_pt = env[t], env[c]
-            _, r = env[circ_ref]
-            dx, dy = target_pt[0] - center_pt[0], target_pt[1] - center_pt[1]
-            d2 = dx**2 + dy**2
-            if d2 < 1e-9:
-                env[name] = center_pt
-            else:
-                factor = (r**2) / d2
-                env[name] = (center_pt[0] + factor * dx, center_pt[1] + factor * dy)
+        if "circle" in args and args["circle"] is not None:
+            circ_ref = args["circle"]
 
-        return step
+            def step(env):
+                target_pt = env[t]
+                center_pt, r = env[circ_ref]
+                dx, dy = target_pt[0] - center_pt[0], target_pt[1] - center_pt[1]
+                d2 = dx**2 + dy**2
+                if d2 < 1e-9:
+                    env[name] = center_pt
+                else:
+                    factor = (r**2) / d2
+                    env[name] = (center_pt[0] + factor * dx, center_pt[1] + factor * dy)
+
+            return step
+        else:
+            c = args["center"]
+            r_eval = compile_value_argument(args["radius"])
+
+            def step(env):
+                target_pt, center_pt = env[t], env[c]
+                r = r_eval(env)
+                dx, dy = target_pt[0] - center_pt[0], target_pt[1] - center_pt[1]
+                d2 = dx**2 + dy**2
+                if d2 < 1e-9:
+                    env[name] = center_pt
+                else:
+                    factor = (r**2) / d2
+                    env[name] = (center_pt[0] + factor * dx, center_pt[1] + factor * dy)
+
+            return step
 
     @staticmethod
-    def to_ggb(args, name, **kwargs):
-        return f"Reflect({args['target']}, {args['circle']})"
+    def to_ggb(args, name, translator, **kwargs):
+        t = args["target"]
+        if "circle" in args and args["circle"] is not None:
+            return f"Reflect({t}, {args['circle']})"
+        else:
+            c = args["center"]
+            r_str = translator._var_to_ggb(args["radius"])
+            return f"Reflect({t}, Circle({c}, {r_str}))"

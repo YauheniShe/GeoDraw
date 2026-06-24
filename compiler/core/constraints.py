@@ -6,9 +6,11 @@ def compile_constraints(doc: GeoDraftDocument):
     checks = []
     for const in doc.constraints:
         c_type = const["type"]
-        c_args = const["args"]
+
         if c_type == "IsAcute":
-            end1, vertex, end2 = c_args[0], c_args[1], c_args[2]
+            c_args = const["args"]
+            pts = c_args["points"]
+            end1, vertex, end2 = pts[0], pts[1], pts[2]
 
             def check_acute(env, e1=end1, v=vertex, e2=end2):
                 pe1, pv, pe2 = env.get(e1), env.get(v), env.get(e2)
@@ -20,10 +22,11 @@ def compile_constraints(doc: GeoDraftDocument):
 
             checks.append(check_acute)
 
-        elif c_type == "DistanceInequality":
-            lhs_eval = compile_value_argument(c_args[0])
-            rhs_eval = compile_value_argument(c_args[2])
-            op = c_args[1]
+        elif c_type == "Inequality":
+            lhs_eval = compile_value_argument(const["left"])
+            rhs_eval = compile_value_argument(const["right"])
+            op = const["operator"]
+
             if op == ">":
                 checks.append(lambda env, le=lhs_eval, re=rhs_eval: le(env) > re(env))
             elif op == "<":
@@ -32,9 +35,14 @@ def compile_constraints(doc: GeoDraftDocument):
                 checks.append(lambda env, le=lhs_eval, re=rhs_eval: le(env) >= re(env))
             elif op == "<=":
                 checks.append(lambda env, le=lhs_eval, re=rhs_eval: le(env) <= re(env))
+            elif op == "==":
+                checks.append(
+                    lambda env, le=lhs_eval, re=rhs_eval: abs(le(env) - re(env)) < 1e-9
+                )
 
         elif c_type == "Convex":
-            pts_names = tuple(c_args)
+            c_args = const["args"]
+            pts_names = tuple(c_args["points"])
 
             def check_convex(env, names=pts_names):
                 pts = [env.get(p) for p in names]

@@ -429,13 +429,44 @@ class RegularPolygonOp:
     @staticmethod
     def compile_sample(args, name: tuple, disambiguation):
         def step(env):
-            n = args.get("vertices", len(name)) if args else len(name)
-            cx, cy = random.uniform(-1, 1), random.uniform(-1, 1)
-            R = random.uniform(2, 4)
-            start_angle = random.uniform(0, 2 * math.pi)
-            for i in range(min(n, len(name))):
-                angle = start_angle + i * 2 * math.pi / n
-                env[name[i]] = (cx + R * math.cos(angle), cy + R * math.sin(angle))
+            if args and "points" in args:
+                p0, p1 = args["points"]
+                n = args.get("vertices", len(name))
+                A, B = env[p0], env[p1]
+                dx, dy = B[0] - A[0], B[1] - A[1]
+                d = math.hypot(dx, dy)
+                if d < 1e-9:
+                    for i in range(min(n, len(name))):
+                        env[name[i]] = A
+                    return
+
+                mx, my = (A[0] + B[0]) / 2, (A[1] + B[1]) / 2
+                h = (d / 2) / math.tan(math.pi / n)
+                nx, ny = -dy / d, dx / d
+                cx, cy = mx + nx * h, my + ny * h
+
+                radius = math.hypot(A[0] - cx, A[1] - cy)
+                theta0 = math.atan2(A[1] - cy, A[0] - cx)
+
+                for i in range(min(n, len(name))):
+                    if i == 0:
+                        env[name[i]] = A
+                    elif i == 1:
+                        env[name[i]] = B
+                    else:
+                        angle = theta0 + i * 2 * math.pi / n
+                        env[name[i]] = (
+                            cx + radius * math.cos(angle),
+                            cy + radius * math.sin(angle),
+                        )
+            else:
+                n = args.get("vertices", len(name)) if args else len(name)
+                cx, cy = random.uniform(-1, 1), random.uniform(-1, 1)
+                R = random.uniform(2, 4)
+                start_angle = random.uniform(0, 2 * math.pi)
+                for i in range(min(n, len(name))):
+                    angle = start_angle + i * 2 * math.pi / n
+                    env[name[i]] = (cx + R * math.cos(angle), cy + R * math.sin(angle))
 
         return step
 
@@ -443,14 +474,39 @@ class RegularPolygonOp:
     def to_ggb(
         args, name: tuple, disambiguation, translator, sampled_state, **kwargs
     ) -> str:
-        n = args.get("vertices", len(name)) if args else len(name)
-        for i in range(min(n, len(name))):
-            c = (
-                sampled_state[name[i]]
-                if sampled_state
-                else (math.cos(i * 2 * math.pi / n), math.sin(i * 2 * math.pi / n))
+        if args and "points" in args:
+            p0, p1 = args["points"]
+            n = args.get("vertices", len(name))
+
+            poly_name = translator._emit(
+                name=f"poly_{name[0]}",
+                expression=f"Polygon({p0}, {p1}, {n})",
+                ggb_type="polygon",
+                hidden=True,
             )
-            translator._emit(
-                name=name[i], expression=f"({c[0]:.3f}, {c[1]:.3f})", ggb_type="point"
-            )
-        return ""
+            for i in range(min(n, len(name))):
+                if i == 0 and name[i] == p0:
+                    continue
+                if i == 1 and name[i] == p1:
+                    continue
+
+                translator._emit(
+                    name=name[i],
+                    expression=f"Vertex({poly_name}, {i + 1})",
+                    ggb_type="point",
+                )
+            return ""
+        else:
+            n = args.get("vertices", len(name)) if args else len(name)
+            for i in range(min(n, len(name))):
+                c = (
+                    sampled_state[name[i]]
+                    if sampled_state
+                    else (math.cos(i * 2 * math.pi / n), math.sin(i * 2 * math.pi / n))
+                )
+                translator._emit(
+                    name=name[i],
+                    expression=f"({c[0]:.3f}, {c[1]:.3f})",
+                    ggb_type="point",
+                )
+            return ""

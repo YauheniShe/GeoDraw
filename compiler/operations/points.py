@@ -295,7 +295,18 @@ class IsogonalConjugateOp:
 
     @staticmethod
     def to_ggb(args, name, **kwargs):
-        return f"IsogonalConjugate({args['point']}, {args['triangle'][0]}, {args['triangle'][1]}, {args['triangle'][2]})"
+        pt, triangle = args["point"], args["triangle"]
+        A, B, C = triangle[0], triangle[1], triangle[2]
+
+        line_ap = f"Line({A}, {pt})"
+        bis_a = f"AngleBisector({B}, {A}, {C})"
+        ref_ap = f"Reflect({line_ap}, {bis_a})"
+
+        line_bp = f"Line({B}, {pt})"
+        bis_b = f"AngleBisector({A}, {B}, {C})"
+        ref_bp = f"Reflect({line_bp}, {bis_b})"
+
+        return f"Intersect({ref_ap}, {ref_bp})"
 
 
 @register("Point", "IsotomicConjugate")

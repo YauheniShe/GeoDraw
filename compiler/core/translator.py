@@ -128,47 +128,58 @@ class GeoDraftTranslator:
 
         for idx, goal in enumerate(doc.goals):
             g_type = goal.get("type")
-            g_args = goal.get("args", [])
-            if g_type == "Belongs" and len(g_args) >= 2:
-                point_name, obj_name = g_args[0], g_args[1]
-                obj_type_raw = doc_obj_types.get(obj_name, "Line")
-                obj_type = self.GOAL_OBJ_TYPE_MAP.get(obj_type_raw, "line")
-                name_obj = self._emit(
-                    name=f"goalBelongsObj_{point_name}_{obj_name}_{idx}",
-                    expression=obj_name,
-                    ggb_type=obj_type,
-                    is_goal=True,
-                )
-                visibility[name_obj] = True
-                name_pt = self._emit(
-                    name=f"goalBelongsPt_{point_name}_{obj_name}_{idx}",
-                    expression=point_name,
-                    ggb_type="point",
-                    is_goal=True,
-                    coords=sampled_state.get(point_name) if sampled_state else None,
-                )
-                visibility[name_pt] = True
-            elif g_type == "Collinear" and len(g_args) >= 2:
-                name = self._emit(
-                    name=f"goalCollinear_{idx}",
-                    expression=f"Line({g_args[0]}, {g_args[1]})",
-                    ggb_type="line",
-                    is_goal=True,
-                )
-                visibility[name] = True
-            elif g_type == "Concyclic" and len(g_args) >= 3:
-                name = self._emit(
-                    name=f"goalConcyclic_{idx}",
-                    expression=f"Circle({g_args[0]}, {g_args[1]}, {g_args[2]})",
-                    ggb_type="conic",
-                    is_goal=True,
-                )
-                visibility[name] = True
+            g_args = goal.get("args", {})
+
+            if g_type == "Belongs":
+                point_name = g_args.get("point")
+                obj_name = g_args.get("object")
+                if point_name and obj_name:
+                    obj_type_raw = doc_obj_types.get(obj_name, "Line")
+                    obj_type = self.GOAL_OBJ_TYPE_MAP.get(obj_type_raw, "line")
+                    name_obj = self._emit(
+                        name=f"goalBelongsObj_{point_name}_{obj_name}_{idx}",
+                        expression=obj_name,
+                        ggb_type=obj_type,
+                        is_goal=True,
+                    )
+                    visibility[name_obj] = True
+                    name_pt = self._emit(
+                        name=f"goalBelongsPt_{point_name}_{obj_name}_{idx}",
+                        expression=point_name,
+                        ggb_type="point",
+                        is_goal=True,
+                        coords=sampled_state.get(point_name) if sampled_state else None,
+                    )
+                    visibility[name_pt] = True
+
+            elif g_type == "Collinear":
+                pts = g_args.get("points", [])
+                if len(pts) >= 2:
+                    name = self._emit(
+                        name=f"goalCollinear_{idx}",
+                        expression=f"Line({pts[0]}, {pts[1]})",
+                        ggb_type="line",
+                        is_goal=True,
+                    )
+                    visibility[name] = True
+
+            elif g_type == "Concyclic":
+                pts = g_args.get("points", [])
+                if len(pts) >= 3:
+                    name = self._emit(
+                        name=f"goalConcyclic_{idx}",
+                        expression=f"Circle({pts[0]}, {pts[1]}, {pts[2]})",
+                        ggb_type="conic",
+                        is_goal=True,
+                    )
+                    visibility[name] = True
+
             elif g_type == "Equal":
-                for arg in g_args:
+                vals = g_args.get("values", [])
+                for arg in vals:
                     if isinstance(arg, dict):
                         if arg.get("type") == "Distance":
-                            pts = arg["points"]
+                            pts = arg.get("points", [])
                             name = self._emit(
                                 name=f"goalSeg_{pts[0]}{pts[1]}_{idx}",
                                 expression=f"Segment({pts[0]}, {pts[1]})",
@@ -177,7 +188,7 @@ class GeoDraftTranslator:
                             )
                             visibility[name] = True
                         elif arg.get("type") == "AngleMeasure":
-                            v, ends = arg["vertex"], arg["ends"]
+                            v, ends = arg.get("vertex"), arg.get("ends", [])
                             name = self._emit(
                                 name=f"goalAng_{ends[0]}{v}{ends[1]}_{idx}",
                                 expression=f"Angle({ends[0]}, {v}, {ends[1]})",
@@ -185,14 +196,17 @@ class GeoDraftTranslator:
                                 is_goal=True,
                             )
                             visibility[name] = True
-            elif g_type == "Concurrent" and len(g_args) >= 2:
-                name = self._emit(
-                    name=f"goalConcurrent_{idx}",
-                    expression=f"Intersect({g_args[0]}, {g_args[1]})",
-                    ggb_type="point",
-                    is_goal=True,
-                )
-                visibility[name] = True
+
+            elif g_type == "Concurrent":
+                objs = g_args.get("objects", [])
+                if len(objs) >= 2:
+                    name = self._emit(
+                        name=f"goalConcurrent_{idx}",
+                        expression=f"Intersect({objs[0]}, {objs[1]})",
+                        ggb_type="point",
+                        is_goal=True,
+                    )
+                    visibility[name] = True
         return CompiledProject(instructions=self.instructions, visibility=visibility)
 
     def _build_doc_types(self, doc: GeoDraftDocument) -> Dict[str, str]:
