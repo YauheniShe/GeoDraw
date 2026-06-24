@@ -50,12 +50,6 @@ class IntersectionOp:
         args, name: str, disambiguation, doc_obj_types, translator, **kwargs
     ) -> str:  # type: ignore
         obj1, obj2 = args.get("obj1"), args.get("obj2")
-        if not disambiguation:
-            return f"Intersect({obj1}, {obj2}, 1)"
-
-        rule = disambiguation.get("rule")
-        if rule == "algebraic_index":
-            return f"Intersect({obj1}, {obj2}, {disambiguation.get('index', 1)})"
 
         t1 = doc_obj_types.get(obj1, "Line")
         t2 = doc_obj_types.get(obj2, "Line")
@@ -63,6 +57,13 @@ class IntersectionOp:
 
         if t1 in linear_types and t2 in linear_types:
             return f"Intersect({obj1}, {obj2})"
+
+        if not disambiguation:
+            return f"Intersect({obj1}, {obj2}, 1)"
+
+        rule = disambiguation.get("rule")
+        if rule == "algebraic_index":
+            return f"Intersect({obj1}, {obj2}, {disambiguation.get('index', 1)})"
 
         translator._emit(
             name=f"{name}I1",
