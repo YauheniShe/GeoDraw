@@ -10,6 +10,17 @@ SAFE_MATH_GLOBALS.update(
     {k: v for k, v in math.__dict__.items() if not k.startswith("__")}
 )
 
+SAFE_MATH_GLOBALS.update(
+    {
+        "abs": abs,
+        "min": min,
+        "max": max,
+        "round": round,
+        "x": lambda pt: pt[0] if isinstance(pt, (list, tuple)) else pt,
+        "y": lambda pt: pt[1] if isinstance(pt, (list, tuple)) else pt,
+    }
+)
+
 
 def compile_var_evaluators(variables_dict):
     evaluators = {}
