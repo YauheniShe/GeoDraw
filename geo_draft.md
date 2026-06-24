@@ -47,7 +47,6 @@
 * `Conic` — Коническое сечение.
 * `Curve` — Кривая (геометрическое место точек).
 * `Polygon` — Многоугольник.
-* `Angle` — Угол (как геометрическая фигура).
 
 ### 2.1. Скаляры и Математические выражения
 * `{"type": "Number", "value": <float>}` — конкретное число.
@@ -80,7 +79,7 @@
 | `Midpoint` | `{"points": ["<Point>", "<Point>"]}` | Середина отрезка (алиас). |
 | `Center` | `{"object": "<Circle/Conic>"}` | Центр кривой. |
 
-> **Примечание:** Если вам нужна случайная (свободная) точка на отрезке $AB$, используйте метод `PointOnObject` с передачей отрезка в качестве аргумента. Метод `PointOnSegment` предназначен исключительно для фиксации точки в конкретной пропорции (например, для построения середины или деления отрезка в отношении $1:3$).
+> **Примечание:** Если вам нужна случайная (свободная) точка на отрезке $AB$, используйте метод `PointOnObject` с передачей отрезка в качестве аргумента. Метод `PointOnSegment` предназначен исключительно для фиксации точки в конкретной пропорции.
 
 ### 3.2. Центры треугольника и сопряжения (Advanced Point)
 | `method` | `args` | Описание |
@@ -95,14 +94,20 @@
 | `method` | `args` | Описание |
 | :--- | :--- | :--- |
 | `LineThrough` | `{"points": ["A", "B"]}` | Прямая через две точки. |
+| `SegmentByPoints` | `{"points": ["A", "B"]}` | Отрезок по двум точкам. |
+| `RayByPoints` | `{"origin": "A", "direction_point": "B"}` | Луч из точки $A$ через точку $B$. |
 | `ParallelLine` / `PerpendicularLine` | `{"point": "<Point>", "line": "<Line>"}` | Параллельная / перпендикулярная прямая. |
-| `LineByAngle` | `{"line": "<Line>", "point": "<Point>", "angle": "<Scalar>"}` | Прямая через точку под углом к другой прямой. |
-| `RayByAngle` | `{"ray": "<Ray>", "angle": "<Scalar>"}` | Луч под заданным углом к исходному. *(Требует `disambiguation`)* |
+| `LineByAngle` | `{"line": "<Line>", "point": "<Point>", "angle": "<Scalar>"}` | Прямая через точку под углом к другой прямой. *(По умолчанию угол откладывается против часовой стрелки, CCW)* |
+| `RayByAngle` | `{"ray": "<Ray>", "angle": "<Scalar>"}` | Луч под заданным углом к исходному. *(По умолчанию угол CCW. Отрицательные значения — по часовой)* |
 | `PerpendicularBisector`| `{"points": ["A", "B"]}` | Серединный перпендикуляр к отрезку. |
 | `AngleBisector` | `{"vertex": "B", "ends": ["A", "C"]}` | Биссектриса угла $\angle ABC$. |
 | `TangentLine` | `{"point": "<Point>", "object": "<Circle>"}`| Касательная из точки к кривой. *(Требует `disambiguation`)* |
 | `CommonTangent` | `{"circle1": "<Circle>", "circle2": "<Circle>"}`| Общая касательная. *(Требует `disambiguation`)* |
-| `RadicalAxis` / `PolarLine` / `EulerLine` / `SimsonLine` / `Symmedian` | *Специфичные аргументы* | Классические прямые. |
+| `RadicalAxis` | `{"circle1": "<Circle>", "circle2": "<Circle>"}` | Радикальная ось двух окружностей. |
+| `PolarLine` | `{"point": "<Point>", "object": "<Circle/Conic>"}` | Поляра точки относительно кривой. |
+| `EulerLine` | `{"triangle": ["A", "B", "C"]}` | Прямая Эйлера для треугольника. |
+| `SimsonLine` | `{"point": "<Point>", "triangle": ["A", "B", "C"]}` | Прямая Симсона (требует точку на описанной окружности). |
+| `Symmedian` | `{"triangle": ["A", "B", "C"], "vertex": "B"}` | Симедиана (луч/прямая). |
 
 ### 3.4. Окружности (Circle)
 | `method` | `args` | Описание |
@@ -110,8 +115,9 @@
 | `CenterRadius` | `{"center": "<Point>", "radius": "<Scalar>"}` | Окружность по центру и радиусу. |
 | `DiameterCircle`| `{"points": ["A", "B"]}` | Окружность на $AB$ как на диаметре. |
 | `Circumcircle` | `{"triangle": ["A", "B", "C"]}` | Описанная окружность. |
-| `Incircle` / `Excircle` / `NinePointCircle` | `{"triangle": ["A", "B", "C"]}` | Вписанная, вневписанная и окружность Эйлера. |
-| `MixtilinearIncircle` | `{"triangle": ["A", "B", "C"], "angle_vertex": "A"}` | Микстилинейная вписанная окружность для угла $A$. |
+| `Incircle` / `NinePointCircle` | `{"triangle": ["A", "B", "C"]}` | Вписанная окружность и окружность Эйлера. |
+| `Excircle` | `{"triangle": ["A", "B", "C"], "vertex": "A"}` | Вневписанная окружность, касающаяся стороны напротив вершины $A$. |
+| `MixtilinearIncircle` | `{"triangle": ["A", "B", "C"], "vertex": "A"}` | Микстилинейная вписанная окружность для угла $A$. |
 | `ApolloniusCircle`| `{"points": ["A", "B"], "ratio": "<Scalar>"}` | Окружность Аполлония (ГМТ с заданным отношением). |
 
 ### 3.5. Макросы (Множественное присваивание)
@@ -122,7 +128,7 @@
 | `FreeTriangle` / `RightTriangle` / `IsoscelesTriangle` / `EquilateralTriangle` | `None` | Генерирует 3 точки соответствующего треугольника. |
 | `Square` / `Rectangle` / `Parallelogram` / `Trapezoid` / `IsoscelesTrapezoid` / `RightTrapezoid` | `None` | Генерирует 4 точки соответствующего четырехугольника. |
 | `CyclicQuadrilateral` | `{"approx_radius": <Scalar>}*`| Генерирует 4 точки, лежащие на одной окружности. |
-| `RegularPolygon` | `{"vertices": <Int>}` | Генерирует массив вершин правильного многоугольника. |
+| `RegularPolygon` | `{"points": ["A", "B"], "vertices": <Int>}` | Генерирует массив вершин правильного многоугольника, построенного на отрезке $AB$. |
 
 ### 3.6. Преобразования плоскости (Transformations)
 *Методы возвращают объект того же типа, что и аргумент `target`.*
@@ -133,7 +139,7 @@
 | `Translation` | `{"target": "<Obj>", "vector": ["A", "B"]}` | Параллельный перенос на вектор $\vec{AB}$. |
 | `Rotation` | `{"target": "<Obj>", "center": "<Point>", "angle": "<Scalar>"}` | Поворот вокруг точки. *(Требует `disambiguation: orientation`)* |
 | `Homothety` | `{"target": "<Obj>", "center": "<Point>", "ratio": "<Scalar>"}` | Гомотетия. |
-| `Inversion` | `{"target": "<Obj>", "center": "<Point>", "circle": "<Circle>"}` | Инверсия относительно окружности. |
+| `Inversion` | `{"target": "<Obj>", "circle": "<Circle>"}` **ИЛИ** `{"target": "<Obj>", "center": "<Point>", "radius": "<Scalar>"}` | Инверсия. Можно передать либо готовую окружность, либо центр и радиус. |
 
 ### 3.7. Геометрические места точек (Curve)
 | `method` | `args` | Описание |
@@ -144,11 +150,12 @@
 
 ## 4. Разрешение неоднозначностей (`disambiguation`)
 Указывается словарем при операциях, генерирующих несколько решений.
+**Универсальное правило:** Словарь `disambiguation` всегда содержит ключ `"rule"`, определяющий тип фильтра, и дополнительные параметры, зависящие от правила.
 **Множественный возврат:** Если операция (например, `Intersection`) генерирует 2 точки, и используются обе, нужно применить ключ `"names": ["X", "Y"]` вместо `"name"`. В таком случае блок `disambiguation` не используется (компилятор забирает все корни).
 
-| `rule` | `target` / Параметры | Применение |
+| `rule` | Ожидаемые параметры | Применение |
 | :--- | :--- | :--- |
-| `algebraic_index` | `"index": 1` или `2` | Fallback-правило. Выбор i-го корня без геом. привязки (полезно, когда точки "равнозначны" по условию). |
+| `algebraic_index` | `"index": 1` или `2` | Fallback-правило. Выбор i-го корня без геом. привязки. |
 | `closest_to` / `furthest_from` | `"target": "<Point>"` | Ближайшая / наиболее удаленная точка к целевой. |
 | `not_equal` | `"target": "<Point>"` | Исключает тривиальное пересечение. |
 | `order_on_line` | `"order": ["A", "B", "X"]` | Задает порядок расположения точек на прямой. |
@@ -158,34 +165,34 @@
 | `inside_angle` | `"vertex": "B", "ends": ["A", "C"]` | Корень строго внутри угла. |
 | `inside_polygon` / `outside_polygon` | `"polygon": ["A", "B", "C"]` | Корень внутри или вне многоугольника. |
 | `tangent` | `None` | Указывает, что решение ровно одно (фигуры касаются). |
-| `direction` | `"external"` или `"internal"`| Для биссектрис или общих касательных. |
-| `orientation` | `"value": "clockwise"`/`"counterclockwise"` | Направление для `Rotation` и `RayByAngle`. |
+| `tangent_direction` | `"value": "external"` или `"internal"`, опционально `"index": 1/2` | Для биссектрис или общих касательных. |
+| `orientation` | `"value": "clockwise"` или `"counterclockwise"` | Направление для `Rotation`. |
 | `arbitrary` | `None` | Точки равнозначны (берется любая). |
 
 ---
 
 ## 5. Ограничения (`constraints`)
-Используются компилятором для Rejection Sampling базового чертежа.
-* `{"type": "IsAcute", "args": ["A", "B", "C"]}`
-* `{"type": "DistanceInequality", "args": [{"type": "Distance", "points": ["A", "B"]}, ">", {"type": "Number", "value": 5}]}`
-* `{"type": "Convex", "args": ["A", "B", "C", "D"]}`
+Используются компилятором для Rejection Sampling базового чертежа. Аргументы передаются в виде строго типизированных словарей.
+* `{"type": "IsAcute", "args": {"points": ["A", "B", "C"]}}`
+* `{"type": "Inequality", "operator": ">", "left": {"type": "Distance", "points": ["A", "B"]}, "right": {"type": "Number", "value": 5}}`
+* `{"type": "Convex", "args": {"points": ["A", "B", "C", "D"]}}`
 
 ---
 
 ## 6. Целевые предикаты (`goals`)
-Блок `goals` — массив объектов. Задача решена, если доказаны все предикаты.
+Блок `goals` — массив объектов. Задача решена, если доказаны все предикаты. Аргументы строго типизированы через ключи словаря.
 
 | `type` | Ожидаемые `args` | Что значит |
 | :--- | :--- | :--- |
-| `Concurrent` | `[<Line/Circle>, <Line/Circle>, ...]` | Пересекаются в одной точке. |
-| `Collinear` | `[<Point>, <Point>, <Point>, ...]` | Точки лежат на одной прямой. |
-| `Concyclic` | `[<Point>, <Point>, <Point>, <Point>, ...]`| Точки лежат на одной окружности. |
-| `Tangent` | `[<Line/Circle>, <Circle/Conic>]` | Фигуры касаются друг друга. |
-| `Perpendicular`| `[<Line>, <Line>]` | Прямые перпендикулярны. |
-| `Parallel` | `[<Line>, <Line>]` | Прямые параллельны. |
-| `Belongs` | `[<Point>, <Obj>]`| Точка принадлежит объекту. |
-| `Equal` | `[<Scalar>, <Scalar>]`| Равенство величин (длин, углов, отношений). |
-| `Coincident` | `[<Obj>, <Obj>]` | Геометрическое совпадение фигур. |
+| `Concurrent` | `{"objects": [<Line/Circle>, <Line/Circle>, ...]}` | Пересекаются в одной точке. |
+| `Collinear` | `{"points": [<Point>, <Point>, <Point>, ...]}` | Точки лежат на одной прямой. |
+| `Concyclic` | `{"points": [<Point>, <Point>, <Point>, <Point>, ...]}`| Точки лежат на одной окружности. |
+| `Tangent` | `{"objects": [<Line/Circle>, <Circle/Conic>]}` | Фигуры касаются друг друга. |
+| `Perpendicular`| `{"lines": [<Line>, <Line>]}` | Прямые перпендикулярны. |
+| `Parallel` | `{"lines": [<Line>, <Line>]}` | Прямые параллельны. |
+| `Belongs` | `{"point": "<Point>", "object": "<Obj>"}`| Точка принадлежит объекту. |
+| `Equal` | `{"values": [<Scalar>, <Scalar>]}`| Равенство величин (длин, углов, отношений). |
+| `Coincident` | `{"objects": [<Obj>, <Obj>]}` | Геометрическое совпадение фигур. |
 
 ---
 
@@ -205,7 +212,7 @@
 
 ---
 
-## 8. Пример использования
+## 8. Примеры использования
 
 **Условие:** *In parallelogram $ABCD$ with acute angle $A$ a point $N$ is chosen on the segment $AD$, and a point $M$ on the segment $CN$ so that $AB = BM = CM$. Point $K$ is the reflection of $N$ in line $MD$. The line $MK$ meets the segment $AD$ at point $L$. Let $P$ be the common point of the circumcircles of $AMD$ and $CNK$ such that $A$ and $P$ share the same side of the line $MK$. Prove that $\angle CPM = \angle DPL$.*
 
@@ -215,15 +222,13 @@
   "constraints": [
     {
       "type": "IsAcute",
-      "args": ["D", "A", "B"]
+      "args": {"points": ["D", "A", "B"]}
     },
     {
-      "type": "DistanceInequality",
-      "args": [
-        {"type": "Distance", "points": ["A", "D"]},
-        ">",
-        {"type": "Distance", "points": ["A", "B"]}
-      ]
+      "type": "Inequality",
+      "operator": ">",
+      "left": {"type": "Distance", "points": ["A", "D"]},
+      "right": {"type": "Distance", "points": ["A", "B"]}
     }
   ],
   "construction": [
@@ -350,18 +355,20 @@
   "goals": [
     {
       "type": "Equal",
-      "args": [
-        {
-          "type": "AngleMeasure",
-          "vertex": "P",
-          "ends": ["C", "M"]
-        },
-        {
-          "type": "AngleMeasure",
-          "vertex": "P",
-          "ends": ["D", "L"]
-        }
-      ]
+      "args": {
+        "values": [
+          {
+            "type": "AngleMeasure",
+            "vertex": "P",
+            "ends": ["C", "M"]
+          },
+          {
+            "type": "AngleMeasure",
+            "vertex": "P",
+            "ends": ["D", "L"]
+          }
+        ]
+      }
     }
   ],
   "view": [
@@ -417,22 +424,19 @@
 
 **Условие:** *Пусть $ABCD$ — выпуклый четырехугольник. Общие внешние касательные к окружностям $(ABC)$ и $(ACD)$ пересекаются в точке $E$, а общие внешние касательные к окружностям $(ABD)$ и $(BCD)$ пересекаются в точке $F$. Пусть $F$ лежит на прямой $AC$. Докажите, что $E$ лежит на прямой $BD$.*
 
-
 ```json
 {
   "problem_name": "Convex Quadrilateral and Tangents Intersection",
   "constraints": [
     {
       "type": "Convex",
-      "args": ["A", "B", "C", "D"]
+      "args": {"points": ["A", "B", "C", "D"]}
     },
     {
-      "type": "DistanceInequality",
-      "args": [
-        {"type": "Distance", "points": ["A", "D"]},
-        ">",
-        {"type": "Distance", "points": ["A", "B"]}
-      ]
+      "type": "Inequality",
+      "operator": ">",
+      "left": {"type": "Distance", "points": ["A", "D"]},
+      "right": {"type": "Distance", "points": ["A", "B"]}
     }
   ],
   "construction": [
@@ -507,8 +511,9 @@
       "method": "CommonTangent",
       "args": {"circle1": "Circ_ABD", "circle2": "Circ_BCD"},
       "disambiguation": {
-        "direction": "external",
-        "algebraic_index": 1
+        "rule": "tangent_direction",
+        "value": "external",
+        "index": 1
       },
       "hidden": true
     },
@@ -518,8 +523,9 @@
       "method": "CommonTangent",
       "args": {"circle1": "Circ_ABD", "circle2": "Circ_BCD"},
       "disambiguation": {
-        "direction": "external",
-        "algebraic_index": 2
+        "rule": "tangent_direction",
+        "value": "external",
+        "index": 2
       },
       "hidden": true
     },
@@ -535,8 +541,9 @@
       "method": "CommonTangent",
       "args": {"circle1": "Circ_ABC", "circle2": "Circ_ACD"},
       "disambiguation": {
-        "direction": "external",
-        "algebraic_index": 1
+        "rule": "tangent_direction",
+        "value": "external",
+        "index": 1
       },
       "hidden": true
     },
@@ -546,8 +553,9 @@
       "method": "CommonTangent",
       "args": {"circle1": "Circ_ABC", "circle2": "Circ_ACD"},
       "disambiguation": {
-        "direction": "external",
-        "algebraic_index": 2
+        "rule": "tangent_direction",
+        "value": "external",
+        "index": 2
       },
       "hidden": true
     },
@@ -575,11 +583,17 @@
   "goals": [
     {
       "type": "Belongs",
-      "args": ["F", "Line_AC"]
+      "args": {
+        "point": "F",
+        "object": "Line_AC"
+      }
     },
     {
       "type": "Belongs",
-      "args": ["E", "Line_BD"]
+      "args": {
+        "point": "E",
+        "object": "Line_BD"
+      }
     }
   ],
   "view": [
