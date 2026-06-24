@@ -74,7 +74,8 @@ class GeoDraftTranslator:
 
         for action_data in doc.view:
             action = action_data.get("action")
-            targets = action_data.get("targets", [])
+            # Исправлено: гарантируем не-None тип для итерирования
+            targets = action_data.get("targets") or []
             if action in ("Hide", "Show"):
                 state = action == "Show"
                 for t in targets:
@@ -86,13 +87,14 @@ class GeoDraftTranslator:
                     visibility[target] = False
                 new_name = f"view{target}"
                 if "endpoints" in action_data:
-                    ep = action_data["endpoints"]
-                    self._emit(
-                        name=new_name,
-                        expression=f"Segment({ep[0]}, {ep[1]})",
-                        ggb_type="segment",
-                    )
-                    visibility[new_name] = True
+                    ep = action_data.get("endpoints") or []
+                    if len(ep) >= 2:
+                        self._emit(
+                            name=new_name,
+                            expression=f"Segment({ep[0]}, {ep[1]})",
+                            ggb_type="segment",
+                        )
+                        visibility[new_name] = True
                 elif "ray_from" in action_data:
                     self._emit(
                         name=new_name,
@@ -101,34 +103,37 @@ class GeoDraftTranslator:
                     )
                     visibility[new_name] = True
             elif action == "DrawSegment":
-                ep = action_data.get("endpoints", [])
-                new_name = self._emit(
-                    name=f"drawSeg{ep[0]}{ep[1]}",
-                    expression=f"Segment({ep[0]}, {ep[1]})",
-                    ggb_type="segment",
-                )
-                visibility[new_name] = True
+                ep = action_data.get("endpoints") or []
+                if len(ep) >= 2:
+                    new_name = self._emit(
+                        name=f"drawSeg{ep[0]}{ep[1]}",
+                        expression=f"Segment({ep[0]}, {ep[1]})",
+                        ggb_type="segment",
+                    )
+                    visibility[new_name] = True
             elif action == "DrawPolygon":
-                v = action_data.get("vertices", [])
-                new_name = self._emit(
-                    name=f"drawPoly{''.join(v)}",
-                    expression=f"Polygon({', '.join(v)})",
-                    ggb_type="polygon",
-                )
-                visibility[new_name] = True
+                v = action_data.get("vertices") or []
+                if v:
+                    new_name = self._emit(
+                        name=f"drawPoly{''.join(v)}",
+                        expression=f"Polygon({', '.join(v)})",
+                        ggb_type="polygon",
+                    )
+                    visibility[new_name] = True
             elif action == "DrawAngle":
                 v = action_data.get("vertex")
-                ends = action_data.get("ends", [])
-                new_name = self._emit(
-                    name=f"drawAngle{ends[0]}{v}{ends[1]}",
-                    expression=f"Angle({ends[0]}, {v}, {ends[1]})",
-                    ggb_type="angle",
-                )
-                visibility[new_name] = True
+                ends = action_data.get("ends") or []
+                if v and len(ends) >= 2:
+                    new_name = self._emit(
+                        name=f"drawAngle{ends[0]}{v}{ends[1]}",
+                        expression=f"Angle({ends[0]}, {v}, {ends[1]})",
+                        ggb_type="angle",
+                    )
+                    visibility[new_name] = True
 
         for idx, goal in enumerate(doc.goals):
             g_type = goal.get("type")
-            g_args = goal.get("args", {})
+            g_args = goal.get("args") or {}
 
             if g_type == "Belongs":
                 point_name = g_args.get("point")
@@ -153,7 +158,7 @@ class GeoDraftTranslator:
                     visibility[name_pt] = True
 
             elif g_type == "Collinear":
-                pts = g_args.get("points", [])
+                pts = g_args.get("points") or []
                 if len(pts) >= 2:
                     name = self._emit(
                         name=f"goalCollinear_{idx}",
@@ -164,7 +169,7 @@ class GeoDraftTranslator:
                     visibility[name] = True
 
             elif g_type == "Concyclic":
-                pts = g_args.get("points", [])
+                pts = g_args.get("points") or []
                 if len(pts) >= 3:
                     name = self._emit(
                         name=f"goalConcyclic_{idx}",
@@ -175,30 +180,33 @@ class GeoDraftTranslator:
                     visibility[name] = True
 
             elif g_type == "Equal":
-                vals = g_args.get("values", [])
+                vals = g_args.get("values") or []
                 for arg in vals:
                     if isinstance(arg, dict):
                         if arg.get("type") == "Distance":
-                            pts = arg.get("points", [])
-                            name = self._emit(
-                                name=f"goalSeg_{pts[0]}{pts[1]}_{idx}",
-                                expression=f"Segment({pts[0]}, {pts[1]})",
-                                ggb_type="segment",
-                                is_goal=True,
-                            )
-                            visibility[name] = True
+                            pts = arg.get("points") or []
+                            if len(pts) >= 2:
+                                name = self._emit(
+                                    name=f"goalSeg_{pts[0]}{pts[1]}_{idx}",
+                                    expression=f"Segment({pts[0]}, {pts[1]})",
+                                    ggb_type="segment",
+                                    is_goal=True,
+                                )
+                                visibility[name] = True
                         elif arg.get("type") == "AngleMeasure":
-                            v, ends = arg.get("vertex"), arg.get("ends", [])
-                            name = self._emit(
-                                name=f"goalAng_{ends[0]}{v}{ends[1]}_{idx}",
-                                expression=f"Angle({ends[0]}, {v}, {ends[1]})",
-                                ggb_type="angle",
-                                is_goal=True,
-                            )
-                            visibility[name] = True
+                            v = arg.get("vertex")
+                            ends = arg.get("ends") or []
+                            if v and len(ends) >= 2:
+                                name = self._emit(
+                                    name=f"goalAng_{ends[0]}{v}{ends[1]}_{idx}",
+                                    expression=f"Angle({ends[0]}, {v}, {ends[1]})",
+                                    ggb_type="angle",
+                                    is_goal=True,
+                                )
+                                visibility[name] = True
 
             elif g_type == "Concurrent":
-                objs = g_args.get("objects", [])
+                objs = g_args.get("objects") or []
                 if len(objs) >= 2:
                     name = self._emit(
                         name=f"goalConcurrent_{idx}",
@@ -228,10 +236,11 @@ class GeoDraftTranslator:
         doc_obj_types = doc_obj_types or {}
 
         if obj.names:
+            args_for_names: Any = obj.args or {}
             self._map_method_to_ggb(
                 obj.type,
                 obj.method or "Free",
-                obj.args or {},
+                args_for_names,
                 obj.disambiguation,
                 obj.names,
                 sampled_state,
@@ -240,7 +249,7 @@ class GeoDraftTranslator:
             return
 
         name = obj.name
-        args = obj.args or {}
+        args: Any = obj.args or {}
         hidden = obj.hidden
 
         if (
