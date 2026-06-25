@@ -181,13 +181,13 @@ class GeoDraftTranslator:
 
             elif g_type == "Equal":
                 vals = g_args.get("values") or []
-                for arg in vals:
+                for v_idx, arg in enumerate(vals):
                     if isinstance(arg, dict):
                         if arg.get("type") == "Distance":
                             pts = arg.get("points") or []
                             if len(pts) >= 2:
                                 name = self._emit(
-                                    name=f"goalSeg_{pts[0]}{pts[1]}_{idx}",
+                                    name=f"goalSeg_{pts[0]}{pts[1]}_{idx}_{v_idx}",
                                     expression=f"Segment({pts[0]}, {pts[1]})",
                                     ggb_type="segment",
                                     is_goal=True,
@@ -198,12 +198,33 @@ class GeoDraftTranslator:
                             ends = arg.get("ends") or []
                             if v and len(ends) >= 2:
                                 name = self._emit(
-                                    name=f"goalAng_{ends[0]}{v}{ends[1]}_{idx}",
+                                    name=f"goalAng_{ends[0]}{v}{ends[1]}_{idx}_{v_idx}",
                                     expression=f"Angle({ends[0]}, {v}, {ends[1]})",
                                     ggb_type="angle",
                                     is_goal=True,
                                 )
                                 visibility[name] = True
+                        elif arg.get("type") == "MathExpression":
+                            expr = arg.get("expression", "")
+                            vars_dict = arg.get("variables", {})
+                            translated_expr = self._translate_math_expression(
+                                expr, vars_dict
+                            )
+                            name = self._emit(
+                                name=f"goalExpr_{idx}_{v_idx}",
+                                expression=translated_expr,
+                                ggb_type="numeric",
+                                is_goal=True,
+                            )
+                            visibility[name] = True
+                        elif arg.get("type") == "Number":
+                            name = self._emit(
+                                name=f"goalNum_{idx}_{v_idx}",
+                                expression=str(arg.get("value", 0)),
+                                ggb_type="numeric",
+                                is_goal=True,
+                            )
+                            visibility[name] = True
 
             elif g_type == "Concurrent":
                 objs = g_args.get("objects") or []

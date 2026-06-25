@@ -170,33 +170,113 @@ class LineByAngleOp:
 @register("Line", "TangentLine")
 class TangentLineOp:
     @staticmethod
-    def compile_sample(args, name: str, disambiguation):
+    def compile_sample(args, name, disambiguation):
         pt, circle_ref = args["point"], args["object"]
 
-        idx = 1
-        if disambiguation:
-            if disambiguation.get("rule") == "algebraic_index":
-                idx = disambiguation.get("index", 1)
-            else:
-                idx = disambiguation.get("algebraic_index", 1)
+        rule = (
+            disambiguation.get("rule", "algebraic_index")
+            if disambiguation
+            else "algebraic_index"
+        )
+        d_params = disambiguation or {}
 
         def step(env):
             tangents = tangents_from_point_to_circle(env[pt], env[circle_ref])
-            if not tangents or idx > len(tangents):
+            if not tangents:
                 raise ValueError("Касательные не найдены")
-            env[name] = tangents[idx - 1]
+
+            if isinstance(name, (list, tuple)):
+                for i, n in enumerate(name):
+                    if i < len(tangents):
+                        env[n] = tangents[i]
+            else:
+                if rule == "algebraic_index":
+                    idx = d_params.get("index", 1)
+                    if idx > len(tangents):
+                        raise ValueError("Касательные не найдены")
+                    env[name] = tangents[idx - 1]
+                else:
+                    from compiler.core.disambiguation import select_disambiguation
+                    from compiler.math_lib.base import project_point_on_line
+
+                    center_pt = env[circle_ref][0]
+                    t_points = [
+                        project_point_on_line(center_pt, line) for line in tangents
+                    ]
+
+                    pt_to_line = {
+                        t_points[i]: tangents[i] for i in range(len(tangents))
+                    }
+
+                    chosen_pt = select_disambiguation(t_points, rule, d_params, env)
+
+                    if chosen_pt is None:
+                        raise ValueError(
+                            "Не удалось разрешить неоднозначность для касательной"
+                        )
+                    env[name] = pt_to_line[chosen_pt]
 
         return step
 
     @staticmethod
-    def to_ggb(args, name, disambiguation, **kwargs):
-        idx = 1
-        if disambiguation:
-            if disambiguation.get("rule") == "algebraic_index":
-                idx = disambiguation.get("index", 1)
-            else:
-                idx = disambiguation.get("algebraic_index", 1)
-        return f"Element({{Tangent({args['point']}, {args['object']})}}, {idx})"
+    def to_ggb(args, name, disambiguation, translator, **kwargs):
+        if isinstance(name, (list, tuple)):
+            for i, n in enumerate(name):
+                translator._emit(
+                    name=n,
+                    expression=f"Element({{Tangent({args['point']}, {args['object']})}}, {i + 1})",
+                    ggb_type="line",
+                )
+            return ""
+
+        rule = (
+            disambiguation.get("rule", "algebraic_index")
+            if disambiguation
+            else "algebraic_index"
+        )
+        if rule == "algebraic_index":
+            idx = disambiguation.get("index", 1) if disambiguation else 1
+            return f"Element({{Tangent({args['point']}, {args['object']})}}, {idx})"
+
+        translator._emit(
+            name=f"{name}L1",
+            expression=f"Element({{Tangent({args['point']}, {args['object']})}}, 1)",
+            ggb_type="line",
+            hidden=True,
+        )
+        translator._emit(
+            name=f"{name}L2",
+            expression=f"Element({{Tangent({args['point']}, {args['object']})}}, 2)",
+            ggb_type="line",
+            hidden=True,
+        )
+
+        if rule in ("closest_to", "furthest_from"):
+            tgt = disambiguation.get("target")
+            op = "<" if rule == "closest_to" else ">"
+            return f"If(Distance({name}L1, {tgt}) {op} Distance({name}L2, {tgt}), {name}L1, {name}L2)"
+
+        elif rule in ("same_side_of_line", "opposite_side_of_line"):
+            ln = disambiguation.get("line")
+            pt = disambiguation.get("point")
+
+            translator._emit(
+                name=f"{name}P1",
+                expression=f"ClosestPoint({name}L1, Center({args['object']}))",
+                ggb_type="point",
+                hidden=True,
+            )
+            translator._emit(
+                name=f"{name}P2",
+                expression=f"ClosestPoint({name}L2, Center({args['object']}))",
+                ggb_type="point",
+                hidden=True,
+            )
+            cond = f"(({pt} - ClosestPoint({ln}, {pt})) * ({name}P1 - ClosestPoint({ln}, {name}P1)))"
+            op = ">" if rule == "same_side_of_line" else "<"
+            return f"If({cond} {op} 0, {name}L1, {name}L2)"
+
+        return f"Element({{Tangent({args['point']}, {args['object']})}}, 1)"
 
 
 @register("Line", "RadicalAxis")

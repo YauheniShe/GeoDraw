@@ -33,13 +33,13 @@ class DictModel(BaseModel):
         return key in self.model_fields_set or getattr(self, key) is not None
 
     def keys(self):
-        return [k for k in self.model_fields.keys() if self.__contains__(k)]
+        return [k for k in self.__class__.model_fields.keys() if self.__contains__(k)]
 
     def items(self):
         return [(k, getattr(self, k)) for k in self.keys()]
 
 
-ConstraintType = Literal["IsAcute", "Inequality", "Convex"]
+ConstraintType = Literal["IsAcute", "Inequality", "Convex", "NonCollinear"]
 GoalType = Literal[
     "Belongs",
     "Collinear",
@@ -72,6 +72,11 @@ class ConstraintIsAcute(BaseConstraint):
     args: ArgsPoints
 
 
+class ConstraintNonCollinear(BaseConstraint):
+    type: Literal["NonCollinear"]
+    args: ArgsPoints
+
+
 class ConstraintConvex(BaseConstraint):
     type: Literal["Convex"]
     args: ArgsPoints
@@ -84,7 +89,9 @@ class ConstraintInequality(BaseConstraint):
     right: ScalarRef
 
 
-ConstraintDef = Union[ConstraintIsAcute, ConstraintConvex, ConstraintInequality]
+ConstraintDef = Union[
+    ConstraintIsAcute, ConstraintConvex, ConstraintInequality, ConstraintNonCollinear
+]
 
 
 class GoalArgsPoints(DictModel):

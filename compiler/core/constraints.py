@@ -64,6 +64,27 @@ def compile_constraints(doc: GeoDraftDocument):
 
             checks.append(check_convex)
 
+        elif c_type == "NonCollinear":
+            c_args = const["args"]
+            pts_names = tuple(c_args["points"])
+
+            def check_non_collinear(env, names=pts_names):
+                p1 = env.get(names[0])
+                p2 = env.get(names[1])
+                p3 = env.get(names[2])
+
+                if p1 is None or p2 is None or p3 is None:
+                    return False
+
+                cross_product = abs(
+                    (p2[0] - p1[0]) * (p3[1] - p1[1])
+                    - (p2[1] - p1[1]) * (p3[0] - p1[0])
+                )
+
+                return cross_product > 1.0
+
+            checks.append(check_non_collinear)
+
         else:
             raise NotImplementedError(f"Неизвестный тип ограничения: {c_type}")
 
