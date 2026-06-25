@@ -1,8 +1,17 @@
+import json
 import math
 import random
+import re
+from pathlib import Path
 
-from compiler.core.evaluators import compile_value_argument
-from compiler.math_lib.barycentric import isogonal_conjugate, isotomic_conjugate
+from simpleeval import simple_eval
+
+from compiler.core.evaluators import SAFE_MATH_GLOBALS, compile_value_argument
+from compiler.math_lib.barycentric import (
+    barycentric_to_cartesian,
+    isogonal_conjugate,
+    isotomic_conjugate,
+)
 from compiler.math_lib.base import (
     centroid,
     circumcenter,
@@ -249,6 +258,45 @@ class OrthocenterOp:
         return f"TriangleCenter({args['triangle'][0]}, {args['triangle'][1]}, {args['triangle'][2]}, 4)"
 
 
+_ETC_DB = None
+
+
+def _get_etc_formula(index: int) -> str:
+    """
+    Загружает формулы из etc_barycentrics.json.
+    """
+    global _ETC_DB
+    if _ETC_DB is None:
+        current_dir = Path(__file__).parent
+
+        paths_to_try = [
+            current_dir.parent / "data" / "etc_barycentrics.json",
+            current_dir / "etc_barycentrics.json",
+            current_dir.parent / "etc_barycentrics.json",
+            current_dir.parent.parent / "etc_barycentrics.json",
+        ]
+
+        resolved_path = next((p for p in paths_to_try if p.exists()), None)
+
+        if not resolved_path:
+            raise FileNotFoundError(
+                f"Не удалось найти 'etc_barycentrics.json'. Проверенные пути: {[str(p) for p in paths_to_try]}"
+            )
+
+        _ETC_DB = json.loads(resolved_path.read_text(encoding="utf-8"))
+
+    return _ETC_DB.get(str(index), "1")
+
+
+def _replace_etc_vars(expr: str, mapping: dict) -> str:
+    """
+    Заменяет математические переменные 'a', 'b', 'c' на GGB-переменные,
+    избегая частичных совпадений внутри более длинных слов.
+    """
+    pattern = re.compile(r"\b(a|b|c)\b")
+    return pattern.sub(lambda m: mapping[m.group(0)], expr)
+
+
 @register("Point", "ETC")
 class ETCOp:
     @staticmethod
@@ -257,27 +305,73 @@ class ETCOp:
         idx = args["index"]
 
         def step(env):
-            p1, p2, p3 = env[triangle[0]], env[triangle[1]], env[triangle[2]]
-            if idx == 1:
-                env[name] = incenter(p1, p2, p3)
-            elif idx == 2:
-                env[name] = centroid(p1, p2, p3)
-            elif idx == 3:
-                env[name] = circumcenter(p1, p2, p3)
-            elif idx == 4:
-                env[name] = orthocenter(p1, p2, p3)
-            elif idx == 5:
-                o = orthocenter(p1, p2, p3)
-                c = circumcenter(p1, p2, p3)
-                env[name] = ((o[0] + c[0]) / 2, (o[1] + c[1]) / 2)
-            else:
-                env[name] = centroid(p1, p2, p3)
+            A, B, C = env[triangle[0]], env[triangle[1]], env[triangle[2]]
+
+            a_val = dist(B, C)
+            b_val = dist(C, A)
+            c_val = dist(A, B)
+            formula = _get_etc_formula(idx)
+            python_formula = formula.replace("^", "**")
+            u = float(
+                simple_eval(
+                    python_formula,
+                    names={"a": a_val, "b": b_val, "c": c_val},
+                    functions=SAFE_MATH_GLOBALS,
+                )
+            )
+            v = float(
+                simple_eval(
+                    python_formula,
+                    names={"a": b_val, "b": c_val, "c": a_val},
+                    functions=SAFE_MATH_GLOBALS,
+                )
+            )
+            w = float(
+                simple_eval(
+                    python_formula,
+                    names={"a": c_val, "b": a_val, "c": b_val},
+                    functions=SAFE_MATH_GLOBALS,
+                )
+            )
+
+            env[name] = barycentric_to_cartesian((u, v, w), A, B, C)
 
         return step
 
     @staticmethod
-    def to_ggb(args, name, **kwargs):
-        return f"TriangleCenter({args['triangle'][0]}, {args['triangle'][1]}, {args['triangle'][2]}, {args['index']})"
+    def to_ggb(args, name: str, translator, sampled_state, **kwargs) -> str:
+        A, B, C = args["triangle"][0], args["triangle"][1], args["triangle"][2]
+        idx = args["index"]
+
+        if idx <= 3000:
+            return f"TriangleCenter({A}, {B}, {C}, {idx})"
+
+        formula = _get_etc_formula(idx)
+
+        a_name = translator._emit(
+            name=f"a_{name}",
+            expression=f"Distance({B}, {C})",
+            ggb_type="numeric",
+            hidden=True,
+        )
+        b_name = translator._emit(
+            name=f"b_{name}",
+            expression=f"Distance({C}, {A})",
+            ggb_type="numeric",
+            hidden=True,
+        )
+        c_name = translator._emit(
+            name=f"c_{name}",
+            expression=f"Distance({A}, {B})",
+            ggb_type="numeric",
+            hidden=True,
+        )
+
+        u_expr = _replace_etc_vars(formula, {"a": a_name, "b": b_name, "c": c_name})
+        v_expr = _replace_etc_vars(formula, {"a": b_name, "b": c_name, "c": a_name})
+        w_expr = _replace_etc_vars(formula, {"a": c_name, "b": a_name, "c": b_name})
+
+        return f"(({u_expr}) * {A} + ({v_expr}) * {B} + ({w_expr}) * {C}) / (({u_expr}) + ({v_expr}) + ({w_expr}))"
 
 
 @register("Point", "IsogonalConjugate")
