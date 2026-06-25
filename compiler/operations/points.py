@@ -429,9 +429,10 @@ class IsotomicConjugateOp:
             ggb_type="point",
             hidden=True,
         )
+
         translator._emit(
             name=dp_name,
-            expression=f"{B} + {C} - {d_name}",
+            expression=f"Reflect({d_name}, Midpoint({B}, {C}))",
             ggb_type="point",
             hidden=True,
         )
@@ -443,7 +444,7 @@ class IsotomicConjugateOp:
         )
         translator._emit(
             name=ep_name,
-            expression=f"{A} + {C} - {e_name}",
+            expression=f"Reflect({e_name}, Midpoint({A}, {C}))",
             ggb_type="point",
             hidden=True,
         )
